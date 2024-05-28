@@ -1,0 +1,98 @@
+// Prisma Schema with Optimized Indexes
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL") // Use the DATABASE_URL environment variable
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createDate DateTime @default(now())
+  bulan     bulan[]
+  kategori  kategori[]
+  asalUang  asalUang[]
+  riwayat   riwayat[]
+
+  @@index([email]) // Index for faster email lookups
+  @@index([username]) // Index for faster username lookups
+}
+
+model asalUang {
+  id            Int      @id @default(autoincrement())
+  tipeAsalUang  String
+  createdAt     DateTime @default(now())
+  riwayat       riwayat[]
+  riwayatId     Int      @unique // Make riwayatId unique
+  user          User     @relation(fields: [userId], references: [id])
+  userId        Int
+  
+  @@index([userId]) // Index for faster queries by userId
+}
+
+model bulan {
+  id         Int      @id @default(autoincrement())
+  bln        String
+  tahun      String
+  pemasukan  Float
+  pengeluaran Float
+  total      Float
+  riwayat    riwayat[]
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  
+  @@index([userId]) // Index for faster queries by userId
+  @@unique([bln, tahun, userId]) // Unique constraint for month, year, and user combination
+}
+
+model kategori {
+  id          Int      @id @default(autoincrement())
+  namaKategori String
+  subKategori  String
+  createdAt    DateTime @default(now())
+  riwayat      riwayat? 
+  riwayatId    Int      @unique // Make riwayatId unique
+  user         User     @relation(fields: [userId], references: [id])
+  userId       Int
+  
+  @@index([userId]) // Index for faster queries by userId
+}
+
+model nota {
+  id        Int      @id @default(autoincrement())
+  imagePath String
+  createdAt DateTime @default(now())
+  riwayat   riwayat
+  riwayatId Int      @unique // Make riwayatId unique
+
+  @@index([riwayatId]) // Index for faster queries by riwayatId
+}
+
+model riwayat {
+  id         Int      @id @default(autoincrement())
+  tanggal    DateTime
+  tipe       String
+  nominal    Float
+  catatan    String
+  createdAt  DateTime @default(now())
+  asalUang   asalUang @relation(fields: [asalUangId], references: [id])
+  asalUangId Int
+  kategori   kategori @relation(fields: [kategoriId], references: [id])
+  kategoriId Int
+  nota       nota    @relation(fields: [notaId], references: [id])
+  notaId     Int      @unique // Make notaId unique
+  bulan      bulan   @relation(fields: [bulanId], references: [id])
+  bulanId    Int
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  
+  @@index([userId]) // Index for faster queries by userId
+  @@index([bulanId]) // Index for faster queries by bulanId
+}
