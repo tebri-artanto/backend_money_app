@@ -1,6 +1,7 @@
 const Response = require('../model/Response')
 const httpStatus = require('http-status')
-
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const AsalUang = require('../model/asalUang')
 const User = require('../model/user')
 // const validateAsalUang = require('../utils/AsalUangValidator')
@@ -8,71 +9,62 @@ let response = null
 
 const addAsalUang = async (req, res) => {
   try {
-      const {  tipeAsalUang, user  } = await req.body
+    const { tipeAsalUang, userId, grupId } = req.body;
 
-    const asalUang = new AsalUang({
-      tipeAsalUang,
-      user,
-    })
-    const result = await asalUang.save()
+    const asalUang = await prisma.asalUang.create({
+      data: {
+        tipeAsalUang,
+        userId: parseInt(userId),
+        grupId: parseInt(grupId),
+      },
+    });
 
-    if (user != null) {
-      const userTemp = await User.findById(user)
-      if (!userTemp) {
-          throw new Error('User not found')
-      }
-      userTemp.asalUang.push(result)
-      await userTemp.save()
-  }
-
-    console.log(result)
-    response = new Response.Success(false, 'AsalUang added successfully', result)
-      res.status(httpStatus.OK).json(response)
+    response = new Response.Success(false, 'AsalUang added successfully', asalUang);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
-      response = new Response.Error(true, error.message)
-    console.error(error)
-      res.status(httpStatus.BAD_REQUEST).json(response)
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
-}
+};
+
 
 const updateAsalUang = async (req, res) => {
   try {
-    const { tipeAsalUang } = await req.body
-    const asalUang = await AsalUang.findById(req.params.id)
-    if (!asalUang) {
-      response = new Response.Error(true, 'AsalUang not found')
-      return res.status(httpStatus.NOT_FOUND).json(response)
-    }
-    asalUang.tipeAsalUang = tipeAsalUang
-    const result = await asalUang.save()
-    response = new Response.Success(false, 'AsalUang updated successfully', result)
-    res.status(httpStatus.OK).json(response)
+    const { tipeAsalUang } = req.body;
+    const { id } = req.params;
+
+    const asalUang = await prisma.asalUang.update({
+      where: { id: Number(id) },
+      data: { tipeAsalUang },
+    });
+
+    response = new Response.Success(false, 'AsalUang updated successfully', asalUang);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message)
-    console.error(error)
-    res.status(httpStatus.BAD_REQUEST).json(response)
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
-}
+};
 
 const deleteAsalUang = async (req, res) => {
   try {
-    const asalUang = await AsalUang.findByIdAndDelete(req.params.id)
-    if (!asalUang) {
-      response = new Response.Error(true, 'AsalUang not found')
-      return res.status(httpStatus.NOT_FOUND).json(response)
-    }
-    response = new Response.Success(false, 'AsalUang deleted successfully', asalUang)
-    res.status(httpStatus.OK).json(response)
+    const { id } = req.params;
+
+    const asalUang = await prisma.asalUang.delete({
+      where: { id },
+    });
+
+    response = new Response.Success(false, 'AsalUang deleted successfully', asalUang);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message)
-    console.error(error)
-    res.status(httpStatus.BAD_REQUEST).json(response)
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
-}
+};
 
 const getAllAsalUang = async (req, res) => {
   try {
-    const asalUang = await AsalUang.find()
+    const asalUang = await prisma.asalUang.findMany();
     response = new Response.Success(false, 'AsalUang retrieved successfully', asalUang)
     res.status(httpStatus.OK).json(response)
   } catch (error) {
@@ -84,7 +76,11 @@ const getAllAsalUang = async (req, res) => {
 
 const getAsalUangById = async (req, res) => {
   try {
-    const asalUang = await AsalUang.findById(req.params.id)
+    const { id } = req.params;
+
+    const asalUang = await prisma.asalUang.findUnique({
+      where: { id: parseInt(id) },
+    });
     response = new Response.Success(false, 'AsalUang retrieved successfully', asalUang)
     res.status(httpStatus.OK).json(response)
   } catch (error) {
@@ -95,10 +91,12 @@ const getAsalUangById = async (req, res) => {
 }
 
 const getAsalUangByUserId = async (req, res) => {
-  const userId = req.params.id;
-  console.log(userId)
+  const userId = parseInt(req.params.id);
+
   try {
-    const asalUang = await AsalUang.find({ user: userId });
+    const asalUang = await prisma.asalUang.findMany({
+      where: { userId },
+    });
     response = new Response.Success(false, 'AsalUang retrieved successfully', asalUang)
     res.status(httpStatus.OK).json(response)
   } catch (error) {

@@ -11,20 +11,20 @@ const kategoriRoutes = require('./module/routes/KategoriRoutes');
 const asalUangRoutes = require('./module/routes/AsalUangRoutes');
 const app = express();
 
-dotenv.config();
-require("./module/database/mongodb");
+// dotenv.config();
+// require("./module/database/mongodb");
 
 // Enable CORS
-app.use(cors());
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // Routes
-app.use('/', userRoutes);
+app.use('/auth', userRoutes);
 app.use('/riwayat', riwayatRoutes);
 app.use('/kategori', kategoriRoutes);
 app.use('/asalUang', asalUangRoutes);
+
 // Define routes
 app.get("/", (req, res) => {
     console.log("Response success")
