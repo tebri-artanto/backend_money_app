@@ -5,7 +5,6 @@ const httpStatus = require('http-status');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 const { raw } = require('body-parser')
 const multer = require('multer')
-const sharp = require('sharp')
 const {
   S3Client,
   PutObjectCommand,
@@ -33,10 +32,6 @@ const uploadNota = async (req, res, notaId) => {
   try {
     const { originalname, buffer, mimetype } = req.file;
 
-    const compressedImage = await sharp(buffer)
-      .resize({ width: 500, fit: "contain" })
-      .toBuffer();
-
     const generateRandomName = () => {
       const characters =
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -55,7 +50,7 @@ const uploadNota = async (req, res, notaId) => {
     const params = {
       Bucket: bucketName,
       Key: imageName,
-      Body: compressedImage,
+      Body: buffer,
       ContentType: mimetype,
     };
 
