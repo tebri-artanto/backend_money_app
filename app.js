@@ -9,6 +9,7 @@ const userRoutes = require('./module/routes/UserRoutes');
 const riwayatRoutes = require('./module/routes/RiwayatRoutes');
 const kategoriRoutes = require('./module/routes/KategoriRoutes');
 const asalUangRoutes = require('./module/routes/AsalUangRoutes');
+const grupRoutes = require('./module/routes/GrupRoutes');
 const app = express();
 
 // dotenv.config();
@@ -24,6 +25,7 @@ app.use('/auth', userRoutes);
 app.use('/riwayat', riwayatRoutes);
 app.use('/kategori', kategoriRoutes);
 app.use('/asalUang', asalUangRoutes);
+app.use('/grup', grupRoutes);
 
 // Define routes
 app.get("/", (req, res) => {

@@ -20,6 +20,8 @@ model User {
   asalUang  asalUang[]
   grupMember GrupMember[]
   budgetBulanan budgetBulanan[]
+  Grup      Grup[]
+  
 
   @@index([email]) // Index for faster email lookups
   @@index([username]) // Index for faster username lookups
@@ -28,6 +30,9 @@ model User {
 model Grup {
   id        Int      @id @default(autoincrement())
   namaGrup  String?
+  grupCode  String?
+  userCreate User?    @relation(fields: [userCreateId], references: [id])
+  userCreateId Int?
   createdAt DateTime @default(now())
   bulan     bulan[]
   grupMember GrupMember[]
@@ -38,6 +43,7 @@ model Grup {
 
 model GrupMember {
   id        Int      @id @default(autoincrement())
+  dateJoin  DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
   userId    Int
   grup      Grup     @relation(fields: [grupId], references: [id])
@@ -124,9 +130,23 @@ model riwayat {
   kategori   kategori? @relation(fields: [kategoriId], references: [id])
   kategoriId Int?
   nota       nota?    @relation(fields: [notaId], references: [id])
-  notaId     Int?      @unique 
+  notaId     Int?       
   bulan      bulan?   @relation(fields: [bulanId], references: [id])
   bulanId    Int?
-  
+  detailRiwayat detailRiwayat[]
+
   @@index([bulanId]) // Index for faster queries by bulanId
 }
+
+model detailRiwayat{
+  id        Int      @id @default(autoincrement())
+  namaBarang String?
+  jumlah     Int?
+  harga      Float?
+  total      Float?
+  riwayat    riwayat? @relation(fields: [riwayatId], references: [id])
+  riwayatId  Int? 
+
+  @@index([riwayatId]) // Index for faster queries by riwayatId
+}
+

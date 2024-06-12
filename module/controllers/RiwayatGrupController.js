@@ -2,142 +2,11 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const Response = require('../model/Response');
 const httpStatus = require('http-status');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
-const { raw } = require('body-parser')
-const multer = require('multer')
-const sharp = require('sharp')
-const {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand
-} = require('@aws-sdk/client-s3');
-const bucketName = process.env.AWS_BUCKET_NAME
-const bucketRegion = process.env.AWS_BUCKET_REGION
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY 
-
-const s3Client = new S3Client({
-  credentials: {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey
-  },
-  region: bucketRegion
-})
-
-const upload = multer({
-  storage: multer.memoryStorage({})
-})
-
-const uploadNota = async (req, res, notaId) => {
-  try {
-    const { originalname, buffer, mimetype } = req.file;
-
-    const compressedImage = await sharp(buffer)
-      .resize({ width: 500, fit: "contain" })
-      .toBuffer();
-
-    const generateRandomName = () => {
-      const characters =
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let randomName = "";
-      for (let i = 0; i < 10; i++) {
-        randomName += characters.charAt(
-          Math.floor(Math.random() * characters.length)
-        );
-      }
-      return randomName;
-    };
-    const imageName = `${generateRandomName()}_${Date.now()}.${originalname
-      .split(".")
-      .pop()}`;
-    console.log(imageName);
-    const params = {
-      Bucket: bucketName,
-      Key: imageName,
-      Body: compressedImage,
-      ContentType: mimetype,
-    };
-
-    const upload = await s3Client.send(new PutObjectCommand(params));
-    console.log(upload);
-
-    const newNota = await prisma.nota.create({
-      data: {
-        imagePath: imageName,
-      },
-    });
-
-    console.log(newNota);
-    notaId = newNota.id;
-
-    res.status(200).json({ message: "Image uploaded successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-
-const addDetailRiwayatTest = async (namaBarang, jumlah, harga, total, idRiwayat) => {
-  let response = null;
-  try {
-    const addDetailRiwayat = await prisma.detailRiwayat.create({
-      data: {
-        namaBarang,
-        jumlah: parseInt(jumlah),
-        harga: parseFloat(harga),
-        total: parseFloat(total),
-        riwayatId: parseInt(idRiwayat),
-      },
-    });
-
-    response = new Response.Success(false, 'Detail Riwayat added successfully', addDetailRiwayat);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    console.log(error)
-  }
-};
-
-const addDetailRiwayat = async (req, res) => {
-  let response = null;
-  try {
-    const { detailBarang, idRiwayat } = req.body;
-
-    // Validate the input data
-    if (!Array.isArray(detailBarang) || !idRiwayat) {
-      response = new Response.Error(true, 'Invalid request data');
-      return res.status(httpStatus.BAD_REQUEST).json(response);
-    }
-
-    const detailRiwayatData = await Promise.all(
-      detailBarang.map(async (item) => {
-        const { namaBarang, jumlah, total } = item;
-        const addDetailRiwayat = await prisma.detailRiwayat.create({
-          data: {
-            namaBarang,
-            jumlah: parseFloat(jumlah), // Convert jumlah to a float
-            total: parseFloat(total), // Convert total to a float
-            riwayatId: parseInt(idRiwayat),
-          },
-        });
-        return addDetailRiwayat;
-      })
-    );
-
-    response = new Response.Success(false, 'Detail Riwayat added successfully', detailRiwayatData);
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
-
 
 const addRiwayat = async (req, res) => {
   let response = null;
   try {
-    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId, namaBarang, jumlah, harga, total } = req.body;
+    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, notaId, userId } = req.body;
 
     console.log(Date(tanggal))
     const findBulan = { bln: new Date(tanggal).getMonth() + 1, tahun: new Date(tanggal).getFullYear() };
@@ -204,14 +73,12 @@ const addRiwayat = async (req, res) => {
       });
       bulanId = newBulan.id;
       }
-      
     }
 
     const date = new Date(tanggal);
 
    const isoTanggal = date.toISOString();
 
-   uploadNota(req, res, notaId);
     const riwayat = await prisma.riwayat.create({
       data: {
         tanggal: isoTanggal,
@@ -221,11 +88,9 @@ const addRiwayat = async (req, res) => {
         asalUangId: parseInt(asalUangId),
         kategoriId: parseInt(kategoriId),
         bulanId: parseInt(bulanId),
-        notaId: parseInt(notaId),
+        notaId,
       },
     });
-
-    addDetailRiwayatTest(namaBarang, jumlah, harga, total, riwayat.id);
 
     response = new Response.Success(false, 'Riwayat added successfully', riwayat);
     res.status(httpStatus.OK).json(response);
@@ -258,34 +123,6 @@ const updateRiwayat = async (req, res) => {
     response = new Response.Success(false, 'Riwayat updated successfully', riwayat);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
-const deleteNota = async (req, res) => {
-  let response = null;
-  try {
-    const notaId = req.params.id;
-    const nota = await prisma.nota.findUnique({
-      where: { id: Number(notaId) },
-    });
-
-    if (nota) {
-      const params = {
-        Bucket: bucketName,
-        Key: nota.imagePath,
-      };
-
-      await s3Client.send(new DeleteObjectCommand(params));
-      await prisma.nota.delete({
-        where: { id: Number(notaId) },
-      });
-    }
-    response = new Response.Success(false, 'Nota deleted successfully', nota);
-    res.status(httpStatus.OK).json(response);
-  }
-  catch (error) {
-    console.error(error);
     response = new Response.Error(true, error.message);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
@@ -421,14 +258,10 @@ const getRiwayatByUserId = async (req, res) => {
 };
 
 module.exports = {
-  upload: upload.single('file'),
-  uploadNota,
   addRiwayat,
   updateRiwayat,
   deleteRiwayat,
   getRiwayatByBulanId,
   getRiwayatByUserId,
   getBulanByBulanAndTahun,
-
-  deleteNota,
 };
