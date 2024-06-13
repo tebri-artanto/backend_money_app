@@ -28,7 +28,7 @@ const upload = multer({
   storage: multer.memoryStorage({})
 })
 
-const uploadNota = async (req, res, notaId) => {
+const uploadNotaTest = async (req, res) => {
   try {
     const { originalname, buffer, mimetype } = req.file;
 
@@ -70,6 +70,46 @@ const uploadNota = async (req, res, notaId) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+const uploadNota = async (originalname, buffer, mimetype) => {
+  try {
+    const generateRandomName = () => {
+      const characters =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let randomName = "";
+      for (let i = 0; i < 10; i++) {
+        randomName += characters.charAt(
+          Math.floor(Math.random() * characters.length)
+        );
+      }
+      return randomName;
+    };
+    const imageName = `${generateRandomName()}_${Date.now()}.${originalname
+      .split(".")
+      .pop()}`;
+    console.log(imageName);
+    const params = {
+      Bucket: bucketName,
+      Key: imageName,
+      Body: buffer,
+      ContentType: mimetype,
+    };
+
+    const upload = await s3Client.send(new PutObjectCommand(params));
+    console.log(upload);
+
+    const newNota = await prisma.nota.create({
+      data: {
+        imagePath: imageName,
+      },
+    });
+
+    console.log(newNota);
+    return newNota.id;
+  } catch (error) {
+    console.error(error);
+    throw new Error("Internal server error");
   }
 };
 
@@ -132,8 +172,16 @@ const addDetailRiwayat = async (req, res) => {
 const addRiwayat = async (req, res) => {
   let response = null;
   try {
-    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId, namaBarang, jumlah, harga, total } = req.body;
+    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId } = req.body ;
+    // const tanggal = '2024-05-29' ;
+    // const tipe = 'Pemasukan' ;
+    // const nominal = '100000' ;
+    // const catatan = 'test' ;
+    // const asalUangId = '1' ;
+    // const kategoriId = '1' ;
+    // const userId = '1' ;
 
+    const { originalname, buffer, mimetype } = req.file || {};
     console.log(Date(tanggal))
     const findBulan = { bln: new Date(tanggal).getMonth() + 1, tahun: new Date(tanggal).getFullYear() };
     let newBulan = null;
@@ -205,8 +253,42 @@ const addRiwayat = async (req, res) => {
     const date = new Date(tanggal);
 
    const isoTanggal = date.toISOString();
+   console.log('test');
+     
+  if (req.file) {
+    console.log('masuk sini 1')
+    const generateRandomName = () => {
+      const characters =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let randomName = "";
+      for (let i = 0; i < 10; i++) {
+        randomName += characters.charAt(
+          Math.floor(Math.random() * characters.length)
+        );
+      }
+      return randomName;
+    };
+    const imageName = `${generateRandomName()}_${Date.now()}.${originalname
+      .split(".")
+      .pop()}`;
+    console.log(imageName);
+    const params = {
+      Bucket: bucketName,
+      Key: imageName,
+      Body: buffer,
+      ContentType: mimetype,
+    };
 
-   uploadNota(req, res, notaId);
+    const upload = await s3Client.send(new PutObjectCommand(params));
+    console.log(upload);
+
+    const newNota = await prisma.nota.create({
+      data: {
+        imagePath: imageName,
+      },
+    });
+
+
     const riwayat = await prisma.riwayat.create({
       data: {
         tanggal: isoTanggal,
@@ -216,14 +298,31 @@ const addRiwayat = async (req, res) => {
         asalUangId: parseInt(asalUangId),
         kategoriId: parseInt(kategoriId),
         bulanId: parseInt(bulanId),
-        notaId: parseInt(notaId),
+        notaId: parseInt(newNota.id),
       },
     });
-
-    addDetailRiwayatTest(namaBarang, jumlah, harga, total, riwayat.id);
-
+    // addDetailRiwayatTest(namaBarang, jumlah, harga, total, riwayat.id);
     response = new Response.Success(false, 'Riwayat added successfully', riwayat);
     res.status(httpStatus.OK).json(response);
+  } else {
+    console.log('masuk sini')
+    const riwayat = await prisma.riwayat.create({
+      data: {
+        tanggal: isoTanggal,
+        tipe,
+        nominal: parseFloat(nominal),
+        catatan,
+        asalUangId: parseInt(asalUangId),
+        kategoriId: parseInt(kategoriId),
+        bulanId: parseInt(bulanId),
+      },
+    });
+    // addDetailRiwayatTest(namaBarang, jumlah, harga, total, riwayat.id);
+    response = new Response.Success(false, 'Riwayat added successfully', riwayat);
+    res.status(httpStatus.OK).json(response);
+  }
+
+    
   } catch (error) {
     response = new Response.Error(true, error.message);
     res.status(httpStatus.BAD_REQUEST).json(response);
@@ -424,6 +523,8 @@ module.exports = {
   getRiwayatByBulanId,
   getRiwayatByUserId,
   getBulanByBulanAndTahun,
+  addDetailRiwayat,
+  uploadNotaTest,
 
   deleteNota,
 };

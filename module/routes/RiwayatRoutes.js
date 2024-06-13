@@ -4,8 +4,8 @@ const riwayatController = require("../controllers/RiwayatController");
 const auth = require("../middleware/requireAuth");
 
 // router.use(auth);
-router.post("/uploadNota", riwayatController.upload ,riwayatController.uploadNota);
-router.post("/", riwayatController.addRiwayat);
+router.post("/uploadNota", riwayatController.upload ,riwayatController.uploadNotaTest);
+router.post("/", riwayatController.upload, riwayatController.addRiwayat);
 // router.post("/upload", riwayatController.upload ,riwayatController.uploadImage);
 //router.get("/getAll", riwayatController.getAllRiwayat);
 router.get("/bulan/:bulan/tahun/:tahun/userId/:userId", riwayatController.getBulanByBulanAndTahun);
