@@ -12,6 +12,7 @@ router.get("/bulan/:bulan/tahun/:tahun/userId/:userId", riwayatController.getBul
 
 // router.get("/user/:owner", riwayatController.getRiwayatByuser);
 // router.get("/:id", riwayatController.getRiwayat);
+router.get("/:id", riwayatController.getRiwayatById);
 router.get("/bulan/:id", riwayatController.getRiwayatByBulanId);
 router.get("/user/:id", riwayatController.getRiwayatByUserId);
 router.put("/:id", riwayatController.updateRiwayat);
