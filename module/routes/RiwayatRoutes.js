@@ -15,7 +15,7 @@ router.get("/bulan/:bulan/tahun/:tahun/userId/:userId", riwayatController.getBul
 router.get("/:id", riwayatController.getRiwayatById);
 router.get("/bulan/:id", riwayatController.getRiwayatByBulanId);
 router.get("/user/:id", riwayatController.getRiwayatByUserId);
-router.put("/:id", riwayatController.updateRiwayat);
+router.put("/:id", riwayatController.upload, riwayatController.updateRiwayat);
 router.delete("/:id", riwayatController.deleteRiwayat);
 
 

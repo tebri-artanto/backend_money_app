@@ -53,7 +53,6 @@ const updateKategori = async (req, res) => {
 const deleteKategori = async (req, res) => {
   try {
     const { id } = req.params;
-
     const kategori = await prisma.kategori.delete({
       where: { id: parseInt(id) },
     });
@@ -66,9 +65,15 @@ const deleteKategori = async (req, res) => {
     response = new Response.Success(false, 'Kategori deleted successfully', kategori);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message);
-    console.error(error);
-    res.status(httpStatus.BAD_REQUEST).json(response);
+    if (error.code === 'P2003') {
+      // This is the error code for a foreign key constraint violation in Prisma
+      response = new Response.Error(true, 'Cannot delete kategori. It is being used by other tables.');
+      res.status(httpStatus.BAD_REQUEST).json(response);
+    } else {
+      response = new Response.Error(true, error.message);
+      console.error(error);
+      res.status(httpStatus.BAD_REQUEST).json(response);
+    }
   }
 };
 

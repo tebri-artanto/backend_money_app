@@ -352,9 +352,13 @@ const updateRiwayat = async (req, res) => {
   let response = null;
   try {
     const id = req.params.id;
+    console.log(id)
     const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, bulanId } =
       req.body;
     const { originalname, buffer, mimetype } = req.file || {};
+
+    console.log(req.file);
+    console.log(req.body);
 
     const existingRiwayat = await prisma.riwayat.findUnique({
       where: { id: Number(id) },
@@ -409,10 +413,14 @@ const updateRiwayat = async (req, res) => {
       notaId = newNota.id;
     }
 
+    const date = new Date(tanggal);
+
+    const isoTanggal = date.toISOString();
+
     const updatedRiwayat = await prisma.riwayat.update({
       where: { id: Number(id) },
       data: {
-        tanggal,
+        tanggal : isoTanggal,
         tipe,
         nominal: parseFloat(nominal),
         catatan,
@@ -527,56 +535,6 @@ const deleteNota = async (req, res) => {
   }
 };
 
-// const deleteRiwayat = async (req, res) => {
-//   let response = null;
-//   try {
-//     const id = req.params.id;
-
-//     const riwayat = await prisma.riwayat.findUnique({
-//       where: { id: Number(id) },
-//       include: {
-//         bulan: true,
-//       },
-//     });
-
-//     if (riwayat) {
-//       const { tipe, nominal, bulanId } = riwayat;
-
-//       if (tipe === 'Pemasukan') {
-//         const updatedBulan = await prisma.bulan.update({
-//           where: { id: bulanId },
-//           data: {
-//             pemasukan: { decrement: parseFloat(nominal) },
-//             total: { decrement: parseFloat(nominal) },
-//           },
-//         });
-//       } else if (tipe === 'Pengeluaran') {
-//         const updatedBulan = await prisma.bulan.update({
-//           where: { id: bulanId },
-//           data: {
-//             pengeluaran: { decrement: parseFloat(nominal) },
-//             total: { increment: parseFloat(nominal) },
-//           },
-//         });
-//       }
-
-//       await prisma.riwayat.delete({
-//         where: { id: Number(id) },
-
-//       });
-
-//       response = new Response.Success(false, 'Riwayat deleted successfully', riwayat);
-//       res.status(httpStatus.OK).json(response);
-//     } else {
-//       response = new Response.Error(true, 'Riwayat not found');
-//       res.status(httpStatus.NOT_FOUND).json(response);
-//     }
-//   } catch (error) {
-//     response = new Response.Error(true, error.message);
-//     res.status(httpStatus.BAD_REQUEST).json(response);
-//   }
-// };
-
 const getRiwayatById = async (req, res) => {
   let response = null;
   try {
@@ -598,6 +556,7 @@ const getRiwayatById = async (req, res) => {
 
     if (riwayat) {
       let notaImageUrl = null;
+      console.log(riwayat.nota);
       if (riwayat.nota && riwayat.nota.imagePath) {
         const params = {
           Bucket: bucketName,
@@ -606,7 +565,7 @@ const getRiwayatById = async (req, res) => {
 
         const command = new GetObjectCommand(params);
         notaImageUrl = await getSignedUrl(s3Client, command, {
-          expiresIn: 3600,
+          expiresIn: 4000,
         });
       }
 
