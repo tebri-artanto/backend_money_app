@@ -547,6 +547,7 @@ const getRiwayatById = async (req, res) => {
         kategori: true,
         nota: {
           select: {
+            id: true,
             imagePath: true,
           },
         },
