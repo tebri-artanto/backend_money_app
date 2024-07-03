@@ -11,16 +11,20 @@ const {
   GetObjectCommand,
   DeleteObjectCommand,
 } = require("@aws-sdk/client-s3");
+
+require('dotenv').config();
 const bucketName = process.env.AWS_BUCKET_NAME;
 const bucketRegion = process.env.AWS_BUCKET_REGION;
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
 const s3Client = new S3Client({
+  
   credentials: {
     accessKeyId: accessKeyId,
     secretAccessKey: secretAccessKey,
   },
+  
   region: bucketRegion,
 });
 
@@ -263,8 +267,23 @@ const addRiwayat = async (req, res) => {
         });
         bulanId = newBulan.id;
       }
+      console.log(bulanId);
+      const findBudget = await prisma.budgetBulanan.findFirst({
+        where: {
+          kategoriId: parseInt(kategoriId),
+          bulanId: parseInt(bulanId),
+        },
+      });
+      console.log(findBudget);
+      if(findBudget){
+        const updatedBudget = await prisma.budgetBulanan.update({
+          where: { id: findBudget.id },
+          data: {
+            jumlahBudget: { decrement : parseFloat(nominal) },
+          },
+        });
+      }
     }
-
     const date = new Date(tanggal);
 
     const isoTanggal = date.toISOString();
@@ -681,6 +700,47 @@ const getRiwayatByUserId = async (req, res) => {
   }
 };
 
+
+const getRiwayatSummaryByBulanId = async (req, res) => {
+  let response = null;
+  try {
+    const bulanId = req.params.id;
+
+    const riwayat = await prisma.riwayat.findMany({
+      where: { bulanId: Number(bulanId) },
+      include: {
+        asalUang: true,
+        kategori: true,
+        nota: true,
+        bulan: true,
+      },
+    });
+
+    let pemasukan = 0;
+    let pengeluaran = 0;
+    let total = 0;
+
+    riwayat.forEach((item) => {
+      if (item.tipe === "Pemasukan") {
+        pemasukan += item.nominal;
+      } else if (item.tipe === "Pengeluaran") {
+        pengeluaran += item.nominal;
+      }
+    });
+
+    total = pemasukan - pengeluaran;
+
+    response = new Response.Success(
+      false,
+      "Riwayat summary retrieved successfully",
+      { "Pemasukan": pemasukan, "Pengeluaran": pengeluaran, "Total": total });
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
+
 module.exports = {
   upload: upload.single("file"),
   uploadNota,
@@ -693,6 +753,7 @@ module.exports = {
   getBulanByBulanAndTahun,
   addDetailRiwayat,
   uploadNotaTest,
+  getRiwayatSummaryByBulanId,
 
   deleteNota,
 };

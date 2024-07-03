@@ -40,10 +40,10 @@ CREATE TABLE `GrupMember` (
 -- CreateTable
 CREATE TABLE `budgetBulanan` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `bulan` VARCHAR(191) NULL,
-    `tahun` VARCHAR(191) NULL,
-    `budget` DOUBLE NULL,
+    `jumlahBudget` DOUBLE NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `kategoriId` INTEGER NULL,
+    `bulanId` INTEGER NULL,
     `userId` INTEGER NULL,
     `grupId` INTEGER NULL,
 
@@ -116,6 +116,19 @@ CREATE TABLE `riwayat` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- CreateTable
+CREATE TABLE `detailRiwayat` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `namaBarang` VARCHAR(191) NULL,
+    `jumlah` INTEGER NULL,
+    `harga` DOUBLE NULL,
+    `total` DOUBLE NULL,
+    `riwayatId` INTEGER NULL,
+
+    INDEX `detailRiwayat_riwayatId_idx`(`riwayatId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- AddForeignKey
 ALTER TABLE `Grup` ADD CONSTRAINT `Grup_userCreateId_fkey` FOREIGN KEY (`userCreateId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -124,6 +137,12 @@ ALTER TABLE `GrupMember` ADD CONSTRAINT `GrupMember_userId_fkey` FOREIGN KEY (`u
 
 -- AddForeignKey
 ALTER TABLE `GrupMember` ADD CONSTRAINT `GrupMember_grupId_fkey` FOREIGN KEY (`grupId`) REFERENCES `Grup`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_kategoriId_fkey` FOREIGN KEY (`kategoriId`) REFERENCES `kategori`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_bulanId_fkey` FOREIGN KEY (`bulanId`) REFERENCES `bulan`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -160,3 +179,6 @@ ALTER TABLE `riwayat` ADD CONSTRAINT `riwayat_notaId_fkey` FOREIGN KEY (`notaId`
 
 -- AddForeignKey
 ALTER TABLE `riwayat` ADD CONSTRAINT `riwayat_bulanId_fkey` FOREIGN KEY (`bulanId`) REFERENCES `bulan`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `detailRiwayat` ADD CONSTRAINT `detailRiwayat_riwayatId_fkey` FOREIGN KEY (`riwayatId`) REFERENCES `riwayat`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

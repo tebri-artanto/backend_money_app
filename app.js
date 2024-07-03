@@ -1,5 +1,4 @@
 const express = require('express');
-const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,11 +9,11 @@ const riwayatRoutes = require('./module/routes/RiwayatRoutes');
 const kategoriRoutes = require('./module/routes/KategoriRoutes');
 const asalUangRoutes = require('./module/routes/AsalUangRoutes');
 const grupRoutes = require('./module/routes/GrupRoutes');
+const analisisKeuanganRoutes = require('./module/routes/AnalisisKeuanganRoutes');
+const budgetRoutes = require('./module/routes/BudgetRoutes');
 const app = express();
 
-// dotenv.config();
-// require("./module/database/mongodb");
-
+require('dotenv').config();
 // Enable CORS
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -26,6 +25,8 @@ app.use('/riwayat', riwayatRoutes);
 app.use('/kategori', kategoriRoutes);
 app.use('/asalUang', asalUangRoutes);
 app.use('/grup', grupRoutes);
+app.use('/analisis', analisisKeuanganRoutes);
+app.use('/budget', budgetRoutes);
 
 // Define routes
 app.get("/", (req, res) => {

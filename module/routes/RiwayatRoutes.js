@@ -18,6 +18,7 @@ router.get("/user/:id", riwayatController.getRiwayatByUserId);
 router.put("/:id", riwayatController.upload, riwayatController.updateRiwayat);
 router.delete("/:id", riwayatController.deleteRiwayat);
 
+router.get("/getRiwayatbyBulan/:id", riwayatController.getRiwayatSummaryByBulanId);
 
 router.delete("/deleteNota/:id", riwayatController.deleteNota);
 
