@@ -1,161 +1,178 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL") 
+  url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  username  String?  @unique
-  email     String?  @unique
-  password  String?
-  createDate DateTime @default(now())
-  bulan     bulan[]
-  kategori  kategori[]
-  asalUang  asalUang[]
+  id         Int          @id @default(autoincrement())
+  name       String
+  username   String?      @unique
+  email      String?      @unique
+  password   String?
+  createDate DateTime     @default(now())
+  bulan      bulan[]
+  kategori   kategori[]
+  asalUang   asalUang[]
   grupMember GrupMember[]
-  budgetBulanan budgetBulanan[]
-  Grup      Grup[]
-  
+  Grup       Grup[]
+  budget     budget[]
 
   @@index([email]) // Index for faster email lookups
   @@index([username]) // Index for faster username lookups
 }
 
 model Grup {
-  id        Int      @id @default(autoincrement())
-  namaGrup  String?
-  grupCode  String?
-  userCreate User?    @relation(fields: [userCreateId], references: [id])
+  id           Int          @id @default(autoincrement())
+  namaGrup     String?
+  grupCode     String?
+  userCreate   User?        @relation(fields: [userCreateId], references: [id])
   userCreateId Int?
-  createdAt DateTime @default(now())
-  bulan     bulan[]
-  grupMember GrupMember[]
-  budgetBulanan budgetBulanan[]
-  kategori  kategori[]
-  asalUang  asalUang[] 
+  createdAt    DateTime     @default(now())
+  bulan        bulan[]
+  grupMember   GrupMember[]
+  kategori     kategori[]
+  asalUang     asalUang[]
+  budget       budget[]
 }
 
 model GrupMember {
-  id        Int      @id @default(autoincrement())
-  dateJoin  DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int
-  grup      Grup     @relation(fields: [grupId], references: [id])
-  grupId    Int
-  
-  
+  id       Int      @id @default(autoincrement())
+  dateJoin DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id])
+  userId   Int
+  grup     Grup     @relation(fields: [grupId], references: [id])
+  grupId   Int
+
   @@index([userId]) // Index for faster queries by userId
   @@index([grupId]) // Index for faster queries by grupId
 }
 
-model budgetBulanan {
-  id         Int      @id @default(autoincrement())
-  jumlahBudget     Float?
-  createdAt  DateTime @default(now())
-  kategori   kategori? @relation(fields: [kategoriId], references: [id])
-  kategoriId Int?
-  bulan      bulan?    @relation(fields: [bulanId], references: [id])
-  bulanId    Int?
-  user       User?     @relation(fields: [userId], references: [id])
-  userId     Int?
-  grup      Grup?     @relation(fields: [grupId], references: [id])
-  grupId    Int?
-  
-  
-  @@index([userId]) // Index for faster queries by userId
+model budget {
+  id             Int       @id @default(autoincrement())
+  frekuensi      String?
+  createdAt      DateTime  @default(now())
+  jumlahBudget   Float?
+  sisaBudget     Float?
+  pengulangan    String?
+  tanggalMulai   DateTime?
+  tanggalSelesai DateTime?
+  status         String?
+  kategori       kategori? @relation(fields: [kategoriId], references: [id])
+  kategoriId     Int?
+  user           User?     @relation(fields: [userId], references: [id])
+  userId         Int?
+  grup           Grup?     @relation(fields: [grupId], references: [id])
+  grupId         Int?
+  riwayat        riwayat[]
+
+  @@index([userId]) // Index for fast er queries by userId
 }
 
+// model budgetMingguan {
+//   id              Int       @id @default(autoincrement())
+//   jumlahBudget    Float?
+//   sisaBudget      Float?
+//   hariPengulangan String?
+//   tanggalMulai    DateTime?
+//   tanggalSelesai  DateTime?
+//   createdAt       DateTime  @default(now())
+// }
+
+// model budgetBulanan {
+//   id                 Int       @id @default(autoincrement())
+//   jumlahBudget       Float?
+//   sisaBudget         Float?
+//   tanggalPengulangan String?
+//   tanggalMulai       DateTime?
+//   tanggalSelesai     DateTime?
+//   createdAt          DateTime  @default(now())
+// }
 
 model bulan {
-  id         Int      @id @default(autoincrement())
-  bln        String?
-  tahun      String?
-  pemasukan  Float?
+  id          Int       @id @default(autoincrement())
+  bln         String?
+  tahun       String?
+  pemasukan   Float?
   pengeluaran Float?
-  total      Float?
-  riwayat    riwayat[]
-  budgetBulanan budgetBulanan[]
-  Grup       Grup?    @relation(fields: [grupId], references: [id])
-  grupId     Int?
-  user       User?     @relation(fields: [userId], references: [id])
-  userId     Int?
+  total       Float?
+  riwayat     riwayat[]
+  Grup        Grup?     @relation(fields: [grupId], references: [id])
+  grupId      Int?
+  user        User?     @relation(fields: [userId], references: [id])
+  userId      Int?
 
-  
   @@index([userId]) // Index for faster queries by userId
 }
+
 model asalUang {
-  id            Int      @id @default(autoincrement())
-  tipeAsalUang  String?
-  createdAt     DateTime @default(now())
-  riwayat       riwayat[]
-  user          User?    @relation(fields: [userId], references: [id])
-  userId        Int?
-  Grup          Grup?    @relation(fields: [grupId], references: [id])
-  grupId        Int?
-  
-  @@index([userId]) // Index for faster queries by userId
-}
-
-
-
-
-
-model kategori {
-  id          Int      @id @default(autoincrement())
-  namaKategori String?
-  createdAt    DateTime @default(now())
+  id           Int       @id @default(autoincrement())
+  tipeAsalUang String?
+  createdAt    DateTime  @default(now())
   riwayat      riwayat[]
-  budgetBulanan budgetBulanan[]
   user         User?     @relation(fields: [userId], references: [id])
   userId       Int?
-  grup     Grup?     @relation(fields: [grupId], references: [id])
-  grupId    Int?
+  Grup         Grup?     @relation(fields: [grupId], references: [id])
+  grupId       Int?
+
+  @@index([userId]) // Index for faster queries by userId
+}
+
+model kategori {
+  id           Int       @id @default(autoincrement())
+  namaKategori String?
+  createdAt    DateTime  @default(now())
+  riwayat      riwayat[]
+  budget       budget[]
+  user         User?     @relation(fields: [userId], references: [id])
+  userId       Int?
+  grup         Grup?     @relation(fields: [grupId], references: [id])
+  grupId       Int?
+
   @@index([userId]) // Index for faster queries by userId
 }
 
 model nota {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   imagePath String?
-  createdAt DateTime @default(now())
-  riwayat   riwayat[] 
+  createdAt DateTime  @default(now())
+  riwayat   riwayat[]
 }
 
 model riwayat {
-  id         Int      @id @default(autoincrement())
-  tanggal    DateTime?
-  tipe       String?
-  nominal    Float?
-  catatan    String?
-  createdAt  DateTime @default(now())
-  asalUang   asalUang? @relation(fields: [asalUangId], references: [id])
-  asalUangId Int?
-  kategori   kategori? @relation(fields: [kategoriId], references: [id])
-  kategoriId Int?
-  nota       nota?    @relation(fields: [notaId], references: [id])
-  notaId     Int?       
-  bulan      bulan?   @relation(fields: [bulanId], references: [id])
-  bulanId    Int?
+  id            Int             @id @default(autoincrement())
+  tanggal       DateTime?
+  tipe          String?
+  nominal       Float?
+  catatan       String?
+  createdAt     DateTime        @default(now())
+  asalUang      asalUang?       @relation(fields: [asalUangId], references: [id])
+  asalUangId    Int?
+  kategori      kategori?       @relation(fields: [kategoriId], references: [id])
+  kategoriId    Int?
+  nota          nota?           @relation(fields: [notaId], references: [id])
+  notaId        Int?
+  bulan         bulan?          @relation(fields: [bulanId], references: [id])
+  bulanId       Int?
   detailRiwayat detailRiwayat[]
+  budget        budget?         @relation(fields: [budgetId], references: [id])
+  budgetId      Int?
 
   @@index([bulanId]) // Index for faster queries by bulanId
 }
 
-model detailRiwayat{
-  id        Int      @id @default(autoincrement())
+model detailRiwayat {
+  id         Int      @id @default(autoincrement())
   namaBarang String?
   jumlah     Int?
   harga      Float?
   total      Float?
   riwayat    riwayat? @relation(fields: [riwayatId], references: [id])
-  riwayatId  Int? 
+  riwayatId  Int?
 
   @@index([riwayatId]) // Index for faster queries by riwayatId
 }
-

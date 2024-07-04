@@ -10,5 +10,7 @@ router.get("/:id", budgetController.getBudgetById);
 router.get("/user/:id", budgetController.getBudgetByUserId);
 router.put("/:id", budgetController.updateBudget);
 router.delete("/:id", budgetController.deleteBudget);
+router.put("/updateStatus", budgetController.updateBudgetStatus);
+router.get("/updateSisaBudget", budgetController.updateSisaBudget);
 
 module.exports = router;

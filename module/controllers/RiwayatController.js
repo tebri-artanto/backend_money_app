@@ -190,22 +190,48 @@ const addRiwayat = async (req, res) => {
   try {
     const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId } =
       req.body;
-    // const tanggal = '2024-05-29' ;
-    // const tipe = 'Pemasukan' ;
-    // const nominal = '100000' ;
-    // const catatan = 'test' ;
-    // const asalUangId = '1' ;
-    // const kategoriId = '1' ;
-    // const userId = '1' ;
 
     const { originalname, buffer, mimetype } = req.file || {};
-    console.log(Date(tanggal));
+
     const findBulan = {
       bln: new Date(tanggal).getMonth() + 1,
       tahun: new Date(tanggal).getFullYear(),
     };
     let newBulan = null;
     let bulanId = null;
+
+    // Find the budget based on the kategoriId
+    const findBudget = await prisma.budget.findFirst({
+      where: {
+        kategoriId: parseInt(kategoriId),
+        status: "Aktif",
+      },
+    });
+
+    let budgetId = null;
+
+    // Check if the tanggal is within the range of the budget
+    if (findBudget && tipe === "Pengeluaran") {
+      const tanggalRiwayat = new Date(tanggal);
+      const tanggalMulaiBudget = new Date(findBudget.tanggalMulai);
+      const tanggalSelesaiBudget = findBudget.tanggalSelesai
+        ? new Date(findBudget.tanggalSelesai)
+        : null;
+
+      if (
+        tanggalRiwayat >= tanggalMulaiBudget &&
+        (tanggalSelesaiBudget === null || tanggalRiwayat <= tanggalSelesaiBudget)
+      ) {
+        await prisma.budget.update({
+          where: { id: findBudget.id },
+          data: {
+            sisaBudget: { decrement: parseFloat(nominal) },
+          },
+        });
+
+        budgetId = findBudget.id;
+      }
+    }
 
     if (tipe === "Pemasukan") {
       const existingBulan = await prisma.bulan.findFirst({
@@ -267,29 +293,12 @@ const addRiwayat = async (req, res) => {
         });
         bulanId = newBulan.id;
       }
-      console.log(bulanId);
-      const findBudget = await prisma.budgetBulanan.findFirst({
-        where: {
-          kategoriId: parseInt(kategoriId),
-          bulanId: parseInt(bulanId),
-        },
-      });
-      console.log(findBudget);
-      if(findBudget){
-        const updatedBudget = await prisma.budgetBulanan.update({
-          where: { id: findBudget.id },
-          data: {
-            jumlahBudget: { decrement : parseFloat(nominal) },
-          },
-        });
-      }
     }
-    const date = new Date(tanggal);
 
+    const date = new Date(tanggal);
     const isoTanggal = date.toISOString();
 
     if (req.file) {
-      console.log("masuk sini 1");
       const generateRandomName = () => {
         const characters =
           "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -304,7 +313,6 @@ const addRiwayat = async (req, res) => {
       const imageName = `${generateRandomName()}_${Date.now()}.${originalname
         .split(".")
         .pop()}`;
-      console.log(imageName);
       const params = {
         Bucket: bucketName,
         Key: imageName,
@@ -313,7 +321,6 @@ const addRiwayat = async (req, res) => {
       };
 
       const upload = await s3Client.send(new PutObjectCommand(params));
-      console.log(upload);
 
       const newNota = await prisma.nota.create({
         data: {
@@ -331,9 +338,10 @@ const addRiwayat = async (req, res) => {
           kategoriId: parseInt(kategoriId),
           bulanId: parseInt(bulanId),
           notaId: parseInt(newNota.id),
+          budgetId: budgetId,
         },
       });
-      // addDetailRiwayatTest(namaBarang, jumlah, harga, total, riwayat.id);
+
       response = new Response.Success(
         false,
         "Riwayat added successfully",
@@ -341,7 +349,6 @@ const addRiwayat = async (req, res) => {
       );
       res.status(httpStatus.OK).json(response);
     } else {
-      console.log("masuk sini");
       const riwayat = await prisma.riwayat.create({
         data: {
           tanggal: isoTanggal,
@@ -351,9 +358,10 @@ const addRiwayat = async (req, res) => {
           asalUangId: parseInt(asalUangId),
           kategoriId: parseInt(kategoriId),
           bulanId: parseInt(bulanId),
+          budgetId: budgetId,
         },
       });
-      // addDetailRiwayatTest(namaBarang, jumlah, harga, total, riwayat.id);
+
       response = new Response.Success(
         false,
         "Riwayat added successfully",

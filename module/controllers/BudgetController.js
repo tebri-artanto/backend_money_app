@@ -1,37 +1,63 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const httpStatus = require('http-status');
-const Response = require('../model/Response');
+const httpStatus = require("http-status");
+const Response = require("../model/Response");
 
 let response = null;
 
 const addBudget = async (req, res) => {
+  let budget = null;
   try {
-    const { kategoriId, userId, grupId, jumlahBudget, bulanId } = req.body;
-
-    const findBudget = await prisma.budgetBulanan.findFirst({
-        where: {
-            kategoriId: parseInt(kategoriId),
-            bulanId: parseInt(bulanId),
-        },
-    });
-
-    if (findBudget) {
-        response = new Response.Error(true, 'Budget already exists');
-        return res.status(httpStatus.BAD_REQUEST).json(response);
-    }
-
-    const budget = await prisma.budgetBulanan.create({
-      data: {
-        jumlahBudget: parseFloat(jumlahBudget),
-        kategoriId: parseInt(kategoriId),
+    const {
+      kategoriId,
+      userId,
+      grupId,
+      jumlahBudget,
+      frekuensi,
+      tanggalMulai,
+      tanggalSelesai,
+      pengulangan,
+    } = req.body;
+    const findBudget = await prisma.budget.findMany({
+      where: {
         userId: parseInt(userId),
+        kategoriId: parseInt(kategoriId),
         grupId: parseInt(grupId),
-        bulanId: parseInt(bulanId),
       },
     });
+    if (findBudget.length > 0) {
+      response = new Response.Error(true, "Budget already exists");
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
 
-    response = new Response.Success(false, 'Budget added successfully', budget);
+    const budgetData = {
+      jumlahBudget: parseFloat(jumlahBudget),
+      kategoriId: parseInt(kategoriId),
+      userId: parseInt(userId),
+      grupId: parseInt(grupId),
+      frekuensi: frekuensi,
+      tanggalMulai: new Date(tanggalMulai),
+      pengulangan: pengulangan,
+      sisaBudget: parseFloat(jumlahBudget),
+    };
+
+    if (tanggalSelesai && !isNaN(new Date(tanggalSelesai).getTime())) {
+      budgetData.tanggalSelesai = new Date(tanggalSelesai);
+    }
+
+    if (new Date() >= budgetData.tanggalMulai) {
+      budgetData.status = "Aktif";
+    }
+
+    if (frekuensi === "Harian") {
+      budget = await prisma.budget.create({ data: budgetData });
+    } else if (frekuensi === "Mingguan") {
+      budget = await prisma.budget.create({ data: budgetData });
+    } else if (frekuensi === "Bulanan") {
+      budget = await prisma.budget.create({ data: budgetData });
+    }
+
+    response = new Response.Success(false, "Budget added successfully", budget);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -42,20 +68,52 @@ const addBudget = async (req, res) => {
 
 const updateBudget = async (req, res) => {
   try {
-    const { budgetId } = req.body;
     const { id } = req.params;
+    const {
+      kategoriId,
+      userId,
+      grupId,
+      jumlahBudget,
+      frekuensi,
+      tanggalMulai,
+      tanggalSelesai,
+      pengulangan,
+    } = req.body;
+
+    const budgetData = {
+      jumlahBudget: parseFloat(jumlahBudget),
+      kategoriId: parseInt(kategoriId),
+      userId: parseInt(userId),
+      grupId: parseInt(grupId),
+      frekuensi: frekuensi,
+      tanggalMulai: new Date(tanggalMulai),
+      pengulangan: pengulangan,
+      sisaBudget: parseFloat(jumlahBudget),
+    };
+
+    if (tanggalSelesai && !isNaN(new Date(tanggalSelesai).getTime())) {
+      budgetData.tanggalSelesai = new Date(tanggalSelesai);
+    }
+
+    if (new Date() >= budgetData.tanggalMulai) {
+      budgetData.status = "Aktif";
+    }
 
     const budget = await prisma.budget.update({
       where: { id: parseInt(id) },
-      data: { budgetId },
+      data: budgetData,
     });
 
     if (!budget) {
-      response = new Response.Error(true, 'Budget not found');
+      response = new Response.Error(true, "Budget not found");
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    response = new Response.Success(false, 'Budget updated successfully', budget);
+    response = new Response.Success(
+      false,
+      "Budget updated successfully",
+      budget
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -72,16 +130,23 @@ const deleteBudget = async (req, res) => {
     });
 
     if (!budget) {
-      response = new Response.Error(true, 'Budget not found');
+      response = new Response.Error(true, "Budget not found");
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    response = new Response.Success(false, 'Budget deleted successfully', budget);
+    response = new Response.Success(
+      false,
+      "Budget deleted successfully",
+      budget
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
-    if (error.code === 'P2003') {
+    if (error.code === "P2003") {
       // This is the error code for a foreign key constraint violation in Prisma
-      response = new Response.Error(true, 'Cannot delete budget. It is being used by other tables.');
+      response = new Response.Error(
+        true,
+        "Cannot delete budget. It is being used by other tables."
+      );
       res.status(httpStatus.BAD_REQUEST).json(response);
     } else {
       response = new Response.Error(true, error.message);
@@ -93,8 +158,18 @@ const deleteBudget = async (req, res) => {
 
 const getAllBudget = async (req, res) => {
   try {
-    const budget = await prisma.budget.findMany();
-    response = new Response.Success(false, 'Budget retrieved successfully', budget);
+    const budget = await prisma.budget.findMany({
+      include: {
+        kategori: true,
+        user: true,
+        grup: true,
+      },
+    });
+    response = new Response.Success(
+      false,
+      "Budget retrieved successfully",
+      budget
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -109,9 +184,18 @@ const getBudgetById = async (req, res) => {
 
     const budget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
+      include: {
+        kategori: true,
+        user: true,
+        grup: true,
+      },
     });
 
-    response = new Response.Success(false, 'Budget retrieved successfully', budget);
+    response = new Response.Success(
+      false,
+      "Budget retrieved successfully",
+      budget
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -126,9 +210,102 @@ const getBudgetByUserId = async (req, res) => {
   try {
     const budget = await prisma.budget.findMany({
       where: { userId },
+      include: {
+        kategori: true,
+        grup: true,
+      },
     });
 
-    response = new Response.Success(false, 'Budget retrieved successfully', budget);
+    response = new Response.Success(
+      false,
+      "Budget retrieved successfully",
+      budget
+    );
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
+
+const updateSisaBudget = async (req, res) => {
+  try {
+    const currentDate = new Date();
+    const currentDay = currentDate.getDay(); // 0 (Sunday) to 6 (Saturday)
+    const currentDateOfMonth = currentDate.getDate();
+
+    const budgets = await prisma.budget.findMany({
+      where: {
+        status: "Aktif",
+        tanggalSelesai: {
+          gte: currentDate,
+        },
+      },
+    });
+
+    for (const budget of budgets) {
+      if (
+        budget.frekuensi === "Harian" ||
+        (budget.frekuensi === "Mingguan" &&
+          currentDay === getDayIndex(budget.pengulangan)) ||
+        (budget.frekuensi === "Bulanan" &&
+          currentDateOfMonth === budget.tanggalMulai.getDate())
+      ) {
+        await prisma.budget.update({
+          where: { id: budget.id },
+          data: { sisaBudget: budget.jumlahBudget },
+        });
+      }
+    }
+
+    response = new Response.Success(false, "Sisa Budget updated successfully");
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
+
+// Helper function to get the day index based on the day name
+const getDayIndex = (dayName) => {
+  const daysOfWeek = [
+    "Minggu",
+    "Senin",
+    "Selasa",
+    "Rabu",
+    "Kamis",
+    "Jumat",
+    "Sabtu",
+  ];
+  return daysOfWeek.indexOf(dayName);
+};
+
+const updateBudgetStatus = async (req, res) => {
+  try {
+    const currentDate = new Date();
+
+    const budgets = await prisma.budget.findMany({
+      where: {
+        status: "Aktif",
+        tanggalSelesai: {
+          lte: currentDate,
+        },
+      },
+    });
+
+    for (const budget of budgets) {
+      await prisma.budget.update({
+        where: { id: budget.id },
+        data: { status: "Tidak Aktif" },
+      });
+    }
+
+    response = new Response.Success(
+      false,
+      "Budget status updated successfully"
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -144,4 +321,6 @@ module.exports = {
   getAllBudget,
   getBudgetById,
   getBudgetByUserId,
+  updateSisaBudget,
+  updateBudgetStatus,
 };

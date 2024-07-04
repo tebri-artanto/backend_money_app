@@ -38,16 +38,42 @@ CREATE TABLE `GrupMember` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `budgetBulanan` (
+CREATE TABLE `budget` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `jumlahBudget` DOUBLE NULL,
+    `frekuensi` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `kategoriId` INTEGER NULL,
     `bulanId` INTEGER NULL,
     `userId` INTEGER NULL,
     `grupId` INTEGER NULL,
 
-    INDEX `budgetBulanan_userId_idx`(`userId`),
+    INDEX `budget_userId_idx`(`userId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `budgetMingguan` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `jumlahBudget` DOUBLE NULL,
+    `sisaBudget` DOUBLE NULL,
+    `hariPengulangan` VARCHAR(191) NULL,
+    `tanggalMulai` DATETIME(3) NULL,
+    `tanggalSelesai` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `budgetBulanan` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `jumlahBudget` DOUBLE NULL,
+    `sisaBudget` DOUBLE NULL,
+    `tanggalPenguangan` VARCHAR(191) NULL,
+    `tanggalMulai` DATETIME(3) NULL,
+    `tanggalSelesai` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -139,16 +165,16 @@ ALTER TABLE `GrupMember` ADD CONSTRAINT `GrupMember_userId_fkey` FOREIGN KEY (`u
 ALTER TABLE `GrupMember` ADD CONSTRAINT `GrupMember_grupId_fkey` FOREIGN KEY (`grupId`) REFERENCES `Grup`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_kategoriId_fkey` FOREIGN KEY (`kategoriId`) REFERENCES `kategori`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `budget` ADD CONSTRAINT `budget_kategoriId_fkey` FOREIGN KEY (`kategoriId`) REFERENCES `kategori`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_bulanId_fkey` FOREIGN KEY (`bulanId`) REFERENCES `bulan`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `budget` ADD CONSTRAINT `budget_bulanId_fkey` FOREIGN KEY (`bulanId`) REFERENCES `bulan`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `budget` ADD CONSTRAINT `budget_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `budgetBulanan` ADD CONSTRAINT `budgetBulanan_grupId_fkey` FOREIGN KEY (`grupId`) REFERENCES `Grup`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `budget` ADD CONSTRAINT `budget_grupId_fkey` FOREIGN KEY (`grupId`) REFERENCES `Grup`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `bulan` ADD CONSTRAINT `bulan_grupId_fkey` FOREIGN KEY (`grupId`) REFERENCES `Grup`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
