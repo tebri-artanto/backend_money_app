@@ -73,25 +73,6 @@ model budget {
   @@index([userId]) // Index for fast er queries by userId
 }
 
-// model budgetMingguan {
-//   id              Int       @id @default(autoincrement())
-//   jumlahBudget    Float?
-//   sisaBudget      Float?
-//   hariPengulangan String?
-//   tanggalMulai    DateTime?
-//   tanggalSelesai  DateTime?
-//   createdAt       DateTime  @default(now())
-// }
-
-// model budgetBulanan {
-//   id                 Int       @id @default(autoincrement())
-//   jumlahBudget       Float?
-//   sisaBudget         Float?
-//   tanggalPengulangan String?
-//   tanggalMulai       DateTime?
-//   tanggalSelesai     DateTime?
-//   createdAt          DateTime  @default(now())
-// }
 
 model bulan {
   id          Int       @id @default(autoincrement())

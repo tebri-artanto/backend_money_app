@@ -294,6 +294,8 @@ const updateBudgetStatus = async (req, res) => {
         },
       },
     });
+    console.log(currentDate);
+    console.log(budgets);
 
     for (const budget of budgets) {
       await prisma.budget.update({
