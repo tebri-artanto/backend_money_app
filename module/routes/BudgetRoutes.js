@@ -13,4 +13,4 @@ router.get("/user/:id", budgetController.getBudgetByUserId);
 router.put("/:id", budgetController.updateBudget);
 router.delete("/:id", budgetController.deleteBudget);
 
-module.exports = router;
+module.exports = router; 

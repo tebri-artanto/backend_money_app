@@ -7,7 +7,10 @@ let response = null;
 
 const addBudget = async (req, res) => {
   let budget = null;
+  
   try {
+    console.log("masuk add budget");
+  console.log(req.body);
     const {
       kategoriId,
       userId,
@@ -39,15 +42,14 @@ const addBudget = async (req, res) => {
       tanggalMulai: new Date(tanggalMulai),
       pengulangan: pengulangan,
       sisaBudget: parseFloat(jumlahBudget),
+      status: "Aktif",
     };
 
     if (tanggalSelesai && !isNaN(new Date(tanggalSelesai).getTime())) {
       budgetData.tanggalSelesai = new Date(tanggalSelesai);
     }
 
-    if (new Date() >= budgetData.tanggalMulai) {
-      budgetData.status = "Aktif";
-    }
+    
 
     if (frekuensi === "Harian") {
       budget = await prisma.budget.create({ data: budgetData });
