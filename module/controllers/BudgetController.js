@@ -4,13 +4,10 @@ const httpStatus = require("http-status");
 const Response = require("../model/Response");
 
 let response = null;
-
 const addBudget = async (req, res) => {
-  let budget = null;
-  
   try {
     console.log("masuk add budget");
-  console.log(req.body);
+    console.log(req.body);
     const {
       kategoriId,
       userId,
@@ -19,17 +16,45 @@ const addBudget = async (req, res) => {
       frekuensi,
       tanggalMulai,
       tanggalSelesai,
-      pengulangan,
     } = req.body;
+
+    const startDate = new Date(tanggalMulai);
+    const endDate = tanggalSelesai ? new Date(tanggalSelesai) : null;
+
     const findBudget = await prisma.budget.findMany({
       where: {
         userId: parseInt(userId),
         kategoriId: parseInt(kategoriId),
         grupId: parseInt(grupId),
+        detailBudget: {
+          some: {
+            OR: [
+              {
+                AND: [
+                  { tanggalMulai: { lte: startDate } },
+                  { tanggalSelesai: { gte: startDate } },
+                ],
+              },
+              {
+                AND: [
+                  { tanggalMulai: { lte: endDate } },
+                  { tanggalSelesai: { gte: endDate } },
+                ],
+              },
+              {
+                AND: [
+                  { tanggalMulai: { gte: startDate } },
+                  { tanggalSelesai: { lte: endDate } },
+                ],
+              },
+            ],
+          },
+        },
       },
     });
+
     if (findBudget.length > 0) {
-      response = new Response.Error(true, "Budget already exists");
+      response = new Response.Error(true, "Budget already exists for the given date range");
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
@@ -39,25 +64,39 @@ const addBudget = async (req, res) => {
       userId: parseInt(userId),
       grupId: parseInt(grupId),
       frekuensi: frekuensi,
-      tanggalMulai: new Date(tanggalMulai),
-      pengulangan: pengulangan,
-      sisaBudget: parseFloat(jumlahBudget),
       status: "Aktif",
     };
 
-    if (tanggalSelesai && !isNaN(new Date(tanggalSelesai).getTime())) {
-      budgetData.tanggalSelesai = new Date(tanggalSelesai);
+    const budget = await prisma.budget.create({ data: budgetData });
+
+    const detailBudgets = [];
+
+    let currentDate = new Date(startDate);
+    let iteration = 1;
+
+    while (!endDate || currentDate <= endDate) {
+      const nextDate = getNextDate(currentDate, frekuensi);
+      
+      const detailBudgetData = {
+        budgetId: budget.id,
+        sisaBudget: parseFloat(jumlahBudget),
+        terpakai: 0,
+        tanggalMulai: currentDate,
+        tanggalSelesai: nextDate,
+        pengulangan: iteration,
+      };
+
+      detailBudgets.push(detailBudgetData);
+
+      currentDate = nextDate;
+      iteration++;
+
+      if (!endDate && iteration > 1) break; 
     }
 
-    
-
-    if (frekuensi === "Harian") {
-      budget = await prisma.budget.create({ data: budgetData });
-    } else if (frekuensi === "Mingguan") {
-      budget = await prisma.budget.create({ data: budgetData });
-    } else if (frekuensi === "Bulanan") {
-      budget = await prisma.budget.create({ data: budgetData });
-    }
+    await prisma.detailBudget.createMany({
+      data: detailBudgets,
+    });
 
     response = new Response.Success(false, "Budget added successfully", budget);
     res.status(httpStatus.OK).json(response);
@@ -67,6 +106,26 @@ const addBudget = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+
+// Helper function to get the next date based on frequency
+function getNextDate(currentDate, frekuensi) {
+  const nextDate = new Date(currentDate);
+  switch (frekuensi) {
+    case "Harian":
+      nextDate.setDate(nextDate.getDate() + 1);
+      break;
+    case "Mingguan":
+      nextDate.setDate(nextDate.getDate() + 7);
+      break;
+    case "Bulanan":
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+    default:
+      throw new Error("Invalid frequency");
+  }
+  return nextDate;
+}
+
 
 const updateBudget = async (req, res) => {
   try {

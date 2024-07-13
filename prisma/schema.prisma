@@ -57,10 +57,6 @@ model budget {
   frekuensi      String?
   createdAt      DateTime  @default(now())
   jumlahBudget   Float?
-  sisaBudget     Float?
-  pengulangan    String?
-  tanggalMulai   DateTime?
-  tanggalSelesai DateTime?
   status         String?
   kategori       kategori? @relation(fields: [kategoriId], references: [id])
   kategoriId     Int?
@@ -69,10 +65,24 @@ model budget {
   grup           Grup?     @relation(fields: [grupId], references: [id])
   grupId         Int?
   riwayat        riwayat[]
+  detailBudget   detailBudget[]
 
   @@index([userId]) // Index for fast er queries by userId
 }
 
+model detailBudget {
+  id         Int      @id @default(autoincrement())
+  sisaBudget Float?
+  terpakai   Float?
+  tanggalMulai DateTime?
+  tanggalSelesai DateTime?
+  pengulangan Int?
+  createdAt  DateTime @default(now())
+  budget     budget?  @relation(fields: [budgetId], references: [id])
+  budgetId   Int?
+
+  @@index([budgetId]) // Index for faster queries by budgetId
+}
 
 model bulan {
   id          Int       @id @default(autoincrement())
