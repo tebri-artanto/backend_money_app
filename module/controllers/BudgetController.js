@@ -106,8 +106,6 @@ const addBudget = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
-// Helper function to get the next date based on frequency
 function getNextDate(currentDate, frekuensi) {
   const nextDate = new Date(currentDate);
   switch (frekuensi) {
@@ -224,6 +222,7 @@ const getAllBudget = async (req, res) => {
         kategori: true,
         user: true,
         grup: true,
+        detailBudget: true,
       },
     });
     response = new Response.Success(
@@ -243,13 +242,17 @@ const getBudgetById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    
+
     const budget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
       include: {
         kategori: true,
         user: true,
         grup: true,
+        detailBudget: true,
       },
+      
     });
 
     response = new Response.Success(
