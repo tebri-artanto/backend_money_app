@@ -237,13 +237,9 @@ const getAllBudget = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const getBudgetById = async (req, res) => {
   try {
     const { id } = req.params;
-
-    
-
     const budget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -252,38 +248,61 @@ const getBudgetById = async (req, res) => {
         grup: true,
         detailBudget: true,
       },
-      
     });
 
-    response = new Response.Success(
+    if (!budget) {
+      const response = new Response.Error(true, "Budget not found");
+      return res.status(httpStatus.NOT_FOUND).json(response);
+    }
+
+    const response = new Response.Success(
       false,
       "Budget retrieved successfully",
       budget
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message);
+    const response = new Response.Error(true, error.message);
     console.error(error);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const getBudgetByUserId = async (req, res) => {
   const userId = parseInt(req.params.id);
 
   try {
-    const budget = await prisma.budget.findMany({
+    const budgets = await prisma.budget.findMany({
       where: { userId },
       include: {
         kategori: true,
-        grup: true,
+        detailBudget: {
+          orderBy: {
+            tanggalMulai: 'asc'
+          }
+        },
       },
+    });
+
+    const processedBudgets = budgets.map(budget => {
+      let firstDate = null;
+      let lastDate = null;
+
+      if (budget.detailBudget.length > 0) {
+        firstDate = budget.detailBudget[0].tanggalMulai;
+        lastDate = budget.detailBudget[budget.detailBudget.length - 1].tanggalSelesai;
+      }
+
+      return {
+        ...budget,
+        firstDate,
+        lastDate,
+      };
     });
 
     response = new Response.Success(
       false,
       "Budget retrieved successfully",
-      budget
+      processedBudgets
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {

@@ -12,19 +12,18 @@ const {
   DeleteObjectCommand,
 } = require("@aws-sdk/client-s3");
 
-require('dotenv').config();
+require("dotenv").config();
 const bucketName = process.env.AWS_BUCKET_NAME;
 const bucketRegion = process.env.AWS_BUCKET_REGION;
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
 const s3Client = new S3Client({
-  
   credentials: {
     accessKeyId: accessKeyId,
     secretAccessKey: secretAccessKey,
   },
-  
+
   region: bucketRegion,
 });
 
@@ -200,37 +199,33 @@ const addRiwayat = async (req, res) => {
     let newBulan = null;
     let bulanId = null;
 
-    // Find the budget based on the kategoriId
     const findBudget = await prisma.budget.findFirst({
       where: {
         kategoriId: parseInt(kategoriId),
         status: "Aktif",
       },
     });
+    const findDetailBudget = await prisma.detailBudget.findFirst({
+      where: { budgetId: findBudget.id,
+        tanggalMulai: { lte: new Date(tanggal) },
+        tanggalSelesai: { gte: new Date(tanggal) },
+       },
+    });
 
-    let budgetId = null;
+    console.log(findDetailBudget);
 
-    // Check if the tanggal is within the range of the budget
-    if (findBudget && tipe === "Pengeluaran") {
-      const tanggalRiwayat = new Date(tanggal);
-      const tanggalMulaiBudget = new Date(findBudget.tanggalMulai);
-      const tanggalSelesaiBudget = findBudget.tanggalSelesai
-        ? new Date(findBudget.tanggalSelesai)
-        : null;
+    let detailBudgetId = null;
 
-      if (
-        tanggalRiwayat >= tanggalMulaiBudget &&
-        (tanggalSelesaiBudget === null || tanggalRiwayat <= tanggalSelesaiBudget)
-      ) {
-        await prisma.budget.update({
-          where: { id: findBudget.id },
-          data: {
-            sisaBudget: { decrement: parseFloat(nominal) },
-          },
-        });
+    if (findDetailBudget !== null && tipe === "Pengeluaran") {
+      await prisma.detailBudget.update({
+        where: { id: findDetailBudget.id },
+        data: {
+          sisaBudget: { decrement: parseFloat(nominal) },
+          terpakai: { increment: parseFloat(nominal) },
+        },
+      });
 
-        budgetId = findBudget.id;
-      }
+      detailBudgetId = findDetailBudget.id;
     }
 
     if (tipe === "Pemasukan") {
@@ -338,7 +333,7 @@ const addRiwayat = async (req, res) => {
           kategoriId: parseInt(kategoriId),
           bulanId: parseInt(bulanId),
           notaId: parseInt(newNota.id),
-          budgetId: budgetId,
+          detailBudgetId: detailBudgetId,
         },
       });
 
@@ -358,7 +353,7 @@ const addRiwayat = async (req, res) => {
           asalUangId: parseInt(asalUangId),
           kategoriId: parseInt(kategoriId),
           bulanId: parseInt(bulanId),
-          budgetId: budgetId,
+          detailBudgetId: detailBudgetId,
         },
       });
 
@@ -379,7 +374,7 @@ const updateRiwayat = async (req, res) => {
   let response = null;
   try {
     const id = req.params.id;
-    console.log(id)
+    console.log(id);
     const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, bulanId } =
       req.body;
     const { originalname, buffer, mimetype } = req.file || {};
@@ -447,7 +442,7 @@ const updateRiwayat = async (req, res) => {
     const updatedRiwayat = await prisma.riwayat.update({
       where: { id: Number(id) },
       data: {
-        tanggal : isoTanggal,
+        tanggal: isoTanggal,
         tipe,
         nominal: parseFloat(nominal),
         catatan,
@@ -708,6 +703,32 @@ const getRiwayatByUserId = async (req, res) => {
   }
 };
 
+const getRiwayatByDetailBudgetId = async (req, res) => {
+  let response = null;
+  try {
+    const detailBudgetId = req.params.id;
+
+    const riwayat = await prisma.riwayat.findMany({
+      where: { detailBudgetId: Number(detailBudgetId) },
+      include: {
+        asalUang: true,
+        kategori: true,
+        nota: true,
+        bulan: true,
+      },
+    });
+
+    response = new Response.Success(
+      false,
+      "All Riwayat retrieved successfully",
+      riwayat
+    );
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+}
 
 const getRiwayatSummaryByBulanId = async (req, res) => {
   let response = null;
@@ -741,7 +762,8 @@ const getRiwayatSummaryByBulanId = async (req, res) => {
     response = new Response.Success(
       false,
       "Riwayat summary retrieved successfully",
-      { "Pemasukan": pemasukan, "Pengeluaran": pengeluaran, "Total": total });
+      { Pemasukan: pemasukan, Pengeluaran: pengeluaran, Total: total }
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -762,6 +784,7 @@ module.exports = {
   addDetailRiwayat,
   uploadNotaTest,
   getRiwayatSummaryByBulanId,
+  getRiwayatByDetailBudgetId,
 
   deleteNota,
 };

@@ -64,7 +64,6 @@ model budget {
   userId         Int?
   grup           Grup?     @relation(fields: [grupId], references: [id])
   grupId         Int?
-  riwayat        riwayat[]
   detailBudget   detailBudget[]
 
   @@index([userId]) // Index for fast er queries by userId
@@ -80,6 +79,7 @@ model detailBudget {
   createdAt  DateTime @default(now())
   budget     budget?  @relation(fields: [budgetId], references: [id])
   budgetId   Int?
+  riwayat    riwayat[]
 
   @@index([budgetId]) // Index for faster queries by budgetId
 }
@@ -150,21 +150,9 @@ model riwayat {
   notaId        Int?
   bulan         bulan?          @relation(fields: [bulanId], references: [id])
   bulanId       Int?
-  detailRiwayat detailRiwayat[]
-  budget        budget?         @relation(fields: [budgetId], references: [id])
-  budgetId      Int?
+  detailBudget  detailBudget?   @relation(fields: [detailBudgetId], references: [id])
+  detailBudgetId Int?
 
   @@index([bulanId]) // Index for faster queries by bulanId
 }
 
-model detailRiwayat {
-  id         Int      @id @default(autoincrement())
-  namaBarang String?
-  jumlah     Int?
-  harga      Float?
-  total      Float?
-  riwayat    riwayat? @relation(fields: [riwayatId], references: [id])
-  riwayatId  Int?
-
-  @@index([riwayatId]) // Index for faster queries by riwayatId
-}
