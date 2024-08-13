@@ -31,6 +31,7 @@ const upload = multer({
   storage: multer.memoryStorage({}),
 });
 
+
 const uploadNotaTest = async (req, res) => {
   try {
     const { originalname, buffer, mimetype } = req.file;
@@ -115,75 +116,6 @@ const uploadNota = async (originalname, buffer, mimetype) => {
     throw new Error("Internal server error");
   }
 };
-
-const addDetailRiwayatTest = async (
-  namaBarang,
-  jumlah,
-  harga,
-  total,
-  idRiwayat
-) => {
-  let response = null;
-  try {
-    const addDetailRiwayat = await prisma.detailRiwayat.create({
-      data: {
-        namaBarang,
-        jumlah: parseInt(jumlah),
-        harga: parseFloat(harga),
-        total: parseFloat(total),
-        riwayatId: parseInt(idRiwayat),
-      },
-    });
-
-    response = new Response.Success(
-      false,
-      "Detail Riwayat added successfully",
-      addDetailRiwayat
-    );
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    console.log(error);
-  }
-};
-
-const addDetailRiwayat = async (req, res) => {
-  let response = null;
-  try {
-    const { detailBarang, idRiwayat } = req.body;
-
-    // Validate the input data
-    if (!Array.isArray(detailBarang) || !idRiwayat) {
-      response = new Response.Error(true, "Invalid request data");
-      return res.status(httpStatus.BAD_REQUEST).json(response);
-    }
-
-    const detailRiwayatData = await Promise.all(
-      detailBarang.map(async (item) => {
-        const { namaBarang, jumlah, total } = item;
-        const addDetailRiwayat = await prisma.detailRiwayat.create({
-          data: {
-            namaBarang,
-            jumlah: parseFloat(jumlah), // Convert jumlah to a float
-            total: parseFloat(total), // Convert total to a float
-            riwayatId: parseInt(idRiwayat),
-          },
-        });
-        return addDetailRiwayat;
-      })
-    );
-
-    response = new Response.Success(
-      false,
-      "Detail Riwayat added successfully",
-      detailRiwayatData
-    );
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
-
 const addRiwayat = async (req, res) => {
   let response = null;
   try {
@@ -475,6 +407,7 @@ const deleteRiwayat = async (req, res) => {
       include: {
         bulan: true,
         nota: true,
+        detailBudget: true,
       },
     });
 
@@ -483,11 +416,11 @@ const deleteRiwayat = async (req, res) => {
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    const { tipe, nominal, bulanId, notaId } = riwayat;
+    const { tipe, nominal, bulanId, notaId, detailBudgetId } = riwayat;
 
     // Update the bulan data
     if (tipe === "Pemasukan") {
-      const updatedBulan = await prisma.bulan.update({
+      await prisma.bulan.update({
         where: { id: bulanId },
         data: {
           pemasukan: { decrement: parseFloat(nominal) },
@@ -495,13 +428,24 @@ const deleteRiwayat = async (req, res) => {
         },
       });
     } else if (tipe === "Pengeluaran") {
-      const updatedBulan = await prisma.bulan.update({
+      await prisma.bulan.update({
         where: { id: bulanId },
         data: {
           pengeluaran: { decrement: parseFloat(nominal) },
           total: { increment: parseFloat(nominal) },
         },
       });
+
+      // Update the detailBudget data if applicable
+      if (detailBudgetId) {
+        await prisma.detailBudget.update({
+          where: { id: detailBudgetId },
+          data: {
+            sisaBudget: { increment: parseFloat(nominal) },
+            terpakai: { decrement: parseFloat(nominal) },
+          },
+        });
+      }
     }
 
     // Delete the image from S3 if there is one
@@ -528,6 +472,75 @@ const deleteRiwayat = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+
+// const deleteRiwayat = async (req, res) => {
+//   let response = null;
+//   try {
+//     const id = req.params.id;
+
+//     const riwayat = await prisma.riwayat.findUnique({
+//       where: { id: Number(id) },
+//       include: {
+//         bulan: true,
+//         nota: true,
+//         detailBudget: true, // Include detailBudget to update it if needed
+//       },
+//     });
+
+//     if (!riwayat) {
+//       response = new Response.Error(true, "Riwayat not found");
+//       return res.status(httpStatus.NOT_FOUND).json(response);
+//     }
+
+//     const { tipe, nominal, bulanId, notaId, detailBudgetId } = riwayat;
+
+//     // Update the budget if it's a Pengeluaran and detailBudgetId exists
+//     if (tipe === "Pengeluaran" && detailBudgetId) {
+//       await prisma.detailBudget.update({
+//         where: { id: detailBudgetId },
+//         data: {
+//           sisaBudget: { increment: parseFloat(nominal) },
+//           terpakai: { decrement: parseFloat(nominal) },
+//         },
+//       });
+//     }
+
+//     // Update the bulan data
+//     if (tipe === "Pemasukan") {
+//       await prisma.bulan.update({
+//         where: { id: bulanId },
+//         data: {
+//           pemasukan: { decrement: parseFloat(nominal) },
+//           total: { decrement: parseFloat(nominal) },
+//         },
+//       });
+//     } else if (tipe === "Pengeluaran") {
+//       await prisma.bulan.update({
+//         where: { id: bulanId },
+//         data: {
+//           pengeluaran: { decrement: parseFloat(nominal) },
+//           total: { increment: parseFloat(nominal) },
+//         },
+//       });
+//     }
+
+//     // Delete the image from S3 if there is one
+//     if (riwayat.nota) {
+//       const params = {
+//         Bucket: bucketName,
+//         Key: riwayat.nota.imagePath,
+//       };
+//       await s3Client.send(new DeleteObjectCommand(params));
+//       await prisma.nota.delete({ where: { id: notaId } });
+//     }
+
+//     // Delete the riwayat
+//     await prisma.riwayat.delete({ where: { id: Number(id) } });
+
+//     response = new Response.Success(
+//       false,
+//       "Riway
+
 
 const deleteNota = async (req, res) => {
   let response = null;
@@ -709,7 +722,9 @@ const getRiwayatByDetailBudgetId = async (req, res) => {
     const detailBudgetId = req.params.id;
 
     const riwayat = await prisma.riwayat.findMany({
-      where: { detailBudgetId: Number(detailBudgetId) },
+      where: { detailBudgetId: Number(detailBudgetId),
+        tipe: "Pengeluaran"
+       },
       include: {
         asalUang: true,
         kategori: true,
@@ -771,20 +786,162 @@ const getRiwayatSummaryByBulanId = async (req, res) => {
   }
 };
 
+
+const getRiwayatByUserIdWeekly = async (req, res) => {
+  let response = null;
+  try {
+    const userId = req.params.id;
+    const currentDate = new Date();
+    const currentDay = currentDate.getDay();
+    const daysToMonday = currentDay === 0 ? 6 : currentDay - 1; // Changed this line
+    const mondayDate = new Date(currentDate);
+    mondayDate.setDate(currentDate.getDate() - daysToMonday);
+    mondayDate.setHours(0, 0, 0, 0); // Set to beginning of the day
+
+    const sundayDate = new Date(mondayDate);
+    sundayDate.setDate(mondayDate.getDate() + 6);
+    sundayDate.setHours(23, 59, 59, 999); // Set to end of the day
+
+    const riwayat = await prisma.riwayat.findMany({
+      where: {
+        bulan: {
+          userId: parseInt(userId),
+        },
+        tanggal: {
+          gte: mondayDate.toISOString(),
+          lte: sundayDate.toISOString(),
+        },
+      },
+      include: {
+        asalUang: true,
+        kategori: true,
+        nota: true,
+        bulan: true,
+      },
+    });
+
+    response = new Response.Success(
+      false,
+      "Riwayat retrieved successfully",
+      riwayat
+    );
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
+
+const getRiwayatByUserIdWeeklyByKategori = async (req, res) => {
+  let response = null;
+  try {
+    const userId = req.params.id;
+    const currentDate = new Date();
+    const currentDay = currentDate.getDay();
+    const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const mondayDate = new Date(currentDate);
+    mondayDate.setDate(currentDate.getDate() - daysToMonday);
+    mondayDate.setHours(0, 0, 0, 0);
+
+    const sundayDate = new Date(mondayDate);
+    sundayDate.setDate(mondayDate.getDate() + 6);
+    sundayDate.setHours(23, 59, 59, 999);
+
+    console.log(mondayDate.toISOString(), sundayDate.toISOString());
+
+    const riwayat = await prisma.riwayat.findMany({
+      where: {
+        bulan: {
+          userId: parseInt(userId),
+        },
+        tanggal: {
+          gte: mondayDate.toISOString(),
+          lte: sundayDate.toISOString(),
+        },
+        tipe: "Pengeluaran", // Filter by expense type
+      },
+      include: {
+        asalUang: true,
+        kategori: true,
+        nota: true,
+        bulan: true,
+      },
+    });
+
+    // Group the expenses by Kategori
+    const expensesByKategori = {};
+    riwayat.forEach((item) => {
+      const Kategori = item.kategori.nama; // Assuming the Kategori name is stored in the 'nama' field
+      if (!expensesByKategori[Kategori]) {
+        expensesByKategori[Kategori] = [];
+      }
+      expensesByKategori[Kategori].push(item);
+    });
+
+    response = new Response.Success(
+      false,
+      "Riwayat retrieved successfully",
+      expensesByKategori
+    );
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
+
+const getLast10RiwayatByUserId = async (req, res) => {
+  let response = null;
+  try {
+    const userId = req.params.id;
+
+    const last10Riwayat = await prisma.riwayat.findMany({
+      where: {
+        bulan: {
+          userId: parseInt(userId),
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 10,
+      include: {
+        kategori: true,
+        asalUang: true,
+      },
+    });
+
+    response = new Response.Success(
+      false,
+      'Last 10 riwayat retrieved successfully',
+      last10Riwayat
+    );
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
+
+
 module.exports = {
   upload: upload.single("file"),
   uploadNota,
   addRiwayat,
   updateRiwayat,
   deleteRiwayat,
+  
+  uploadNotaTest,
+
   getRiwayatById,
   getRiwayatByBulanId,
   getRiwayatByUserId,
   getBulanByBulanAndTahun,
-  addDetailRiwayat,
-  uploadNotaTest,
   getRiwayatSummaryByBulanId,
   getRiwayatByDetailBudgetId,
+  getRiwayatByUserIdWeekly,
+  getRiwayatByUserIdWeeklyByKategori,
+  getLast10RiwayatByUserId,
 
   deleteNota,
 };

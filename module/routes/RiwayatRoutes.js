@@ -20,6 +20,9 @@ router.delete("/:id", riwayatController.deleteRiwayat);
 
 router.get("/getRiwayatbyBulan/:id", riwayatController.getRiwayatSummaryByBulanId);
 router.get("/getRiwayatbyDetailBudget/:id", riwayatController.getRiwayatByDetailBudgetId);
+router.get("/getRiwayatbyUserIdWeekly/:id", riwayatController.getRiwayatByUserIdWeekly);
+router.get("/coba1/:id", riwayatController.getRiwayatByUserIdWeeklyByKategori);
+router.get("/getLast10Riwayat/user/:id", riwayatController.getLast10RiwayatByUserId);
 
 router.delete("/deleteNota/:id", riwayatController.deleteNota);
 

@@ -156,3 +156,12 @@ model riwayat {
   @@index([bulanId]) // Index for faster queries by bulanId
 }
 
+model Prediction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  category  String
+  amount    Float
+  createdAt DateTime @default(now())
+
+  @@index([userId, category])
+}
