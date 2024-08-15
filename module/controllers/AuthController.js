@@ -5,8 +5,9 @@ const userValidator = require("../utils/UserValidator");
 const logInValidator = require("../utils/LoginValidator");
 const bcrypt = require("../utils/bcrypt");
 const { PrismaClient } = require('@prisma/client');
-
+const admin= require("../middleware/firebaseMiddle");
 const prisma = new PrismaClient();
+
 
 const signUp = async (req, res) => {
   let response = null;
@@ -55,6 +56,23 @@ const logIn = async (req, res) => {
 
     const createJwtToken = jwt.sign({ id: user.id }, process.env.KEY);
     const data = { token: createJwtToken, user };
+    if (request.fcmToken) {
+      const message = {
+        notification: {
+          title: 'New Login',
+          body: 'You have successfully logged in.',
+        },
+        token: request.fcmToken,
+      };
+
+      try {
+        await admin.messaging().send(message);
+        console.log('Successfully sent login notification');
+      } catch (error) {
+        console.error('Error sending login notification:', error);
+      }
+    }
+
     response = new Response.Success(false, "Login Success", data);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
