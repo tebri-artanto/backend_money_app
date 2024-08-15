@@ -45,8 +45,10 @@ const getBulanById = async (req, res) => {
 const getBulanByTodayBulan = async (req, res) => {
   try {
     const today = new Date();
+    const userId = req.params.id;
     const bulan = await prisma.bulan.findFirst({
       where: {
+        userId: parseInt(userId),
         bln: (today.getMonth() + 1).toString(),
       },
     });

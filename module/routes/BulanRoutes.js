@@ -1,10 +1,10 @@
 const express = require("express");
 const router = new express.Router();
-const kategoriController = require("../controllers/BulanController");
+const bulanController = require("../controllers/BulanController");
 const auth = require("../middleware/requireAuth");
 
 // router.use(auth);
-router.get("/", kategoriController.getAllBulan);
-router.get("/today", kategoriController.getBulanByTodayBulan);
+router.get("/", bulanController.getAllBulan);
+router.get("/today/user/:id", bulanController.getBulanByTodayBulan);
 
 module.exports = router;

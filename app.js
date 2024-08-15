@@ -12,6 +12,8 @@ const grupRoutes = require('./module/routes/GrupRoutes');
 const analisisKeuanganRoutes = require('./module/routes/AnalisisKeuanganRoutes');
 const budgetRoutes = require('./module/routes/BudgetRoutes');
 const chartRoutes = require('./module/routes/ChartRoutes');
+const bulanRoutes = require('./module/routes/BulanRoutes');
+
 const app = express();
 
 require('dotenv').config();
@@ -29,6 +31,7 @@ app.use('/grup', grupRoutes);
 app.use('/analisis', analisisKeuanganRoutes);
 app.use('/budget', budgetRoutes);
 app.use('/chart', chartRoutes);
+app.use('/bulan', bulanRoutes);
 
 // Define routes
 app.get("/", (req, res) => {
