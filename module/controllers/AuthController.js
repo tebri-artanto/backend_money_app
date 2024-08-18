@@ -66,21 +66,25 @@ const logIn = async (req, res) => {
       user.fcmToken = request.fcmToken;
 
       // Send notification
-      const message = {
-        notification: {
-          title: 'New Login',
-          body: 'You have successfully logged in.',
-        },
-        token: request.fcmToken,
-      };
-
-      try {
-        await admin.messaging().send(message);
-        console.log('Successfully sent login notification');
-      } catch (error) {
-        console.error('Error sending login notification:', error);
+     if (user.fcmToken) {
+       
+        const message = {
+          notification: {
+            title: 'New Login',
+            body: 'You have successfully logged in.',
+          },
+          token: user.fcmToken,
+        };
+  
+        try {
+          await admin.messaging().send(message);
+          console.log('Successfully sent login notification');
+        } catch (error) {
+          console.error('Error sending login notification:', error);
+        }
       }
     }
+   
 
     const data = { token: createJwtToken, user };
     response = new Response.Success(false, "Login Success", data);
