@@ -55,6 +55,8 @@ const logIn = async (req, res) => {
 
     const createJwtToken = jwt.sign({ id: user.id }, process.env.KEY);
 
+    console.log("User logged in:", user.username);
+    console.log(request.fcmToken);
     // Update FCM token
     if (request.fcmToken) {
       await prisma.user.update({
