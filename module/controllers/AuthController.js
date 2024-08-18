@@ -5,9 +5,8 @@ const userValidator = require("../utils/UserValidator");
 const logInValidator = require("../utils/LoginValidator");
 const bcrypt = require("../utils/bcrypt");
 const { PrismaClient } = require('@prisma/client');
-const admin= require("../middleware/firebaseMiddle");
+const admin = require("../middleware/firebaseMiddle");
 const prisma = new PrismaClient();
-
 
 const signUp = async (req, res) => {
   let response = null;
@@ -55,8 +54,16 @@ const logIn = async (req, res) => {
     }
 
     const createJwtToken = jwt.sign({ id: user.id }, process.env.KEY);
-    const data = { token: createJwtToken, user };
+
+    // Update FCM token
     if (request.fcmToken) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { fcmToken: request.fcmToken },
+      });
+      user.fcmToken = request.fcmToken;
+
+      // Send notification
       const message = {
         notification: {
           title: 'New Login',
@@ -73,6 +80,7 @@ const logIn = async (req, res) => {
       }
     }
 
+    const data = { token: createJwtToken, user };
     response = new Response.Success(false, "Login Success", data);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
@@ -83,36 +91,35 @@ const logIn = async (req, res) => {
 
 const getUserById = async (req, res) => {
   let response = null;
-try {
-  const { userId } = req.params;
-  if (isNaN(userId)) {
-    return res.status(400).json({ error: "Invalid userId" });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: parseInt(userId)
-    },
-    include: {
-      bulan: true,
-      kategori: true,
-      asalUang: true,
-      grupMember: true,
-      budgetBulanan: true
+  try {
+    const { userId } = req.params;
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid userId" });
     }
-  });
 
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+    const user = await prisma.user.findUnique({
+      where: {
+        id: parseInt(userId)
+      },
+      include: {
+        bulan: true,
+        kategori: true,
+        asalUang: true,
+        grupMember: true,
+        budgetBulanan: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    response = user;
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  response = user;
-} catch (error) {
-  console.error("Error fetching user:", error);
-  return res.status(500).json({ error: "Internal Server Error" });
-}
-res.json(response);
-
+  res.json(response);
 };
 
 module.exports = { signUp, logIn, getUserById };

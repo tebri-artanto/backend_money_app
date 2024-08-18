@@ -5,3 +5,5 @@ const serviceAccount = require("../../money-app-3794c-firebase-adminsdk-6ows3-38
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
+
+module.exports = admin;
