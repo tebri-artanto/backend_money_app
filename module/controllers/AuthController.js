@@ -94,19 +94,43 @@ const logIn = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
-const getUserById = async (req, res) => {
-  let response = null;
+const authenticateToken = async (req, res, next) => {
   try {
-    const { userId } = req.params;
-    if (isNaN(userId)) {
-      return res.status(400).json({ error: "Invalid userId" });
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
     }
 
+    const decoded = jwt.verify(token, process.env.KEY);
+    
     const user = await prisma.user.findUnique({
-      where: {
-        id: parseInt(userId)
-      },
+      where: { id: decoded.id },
+      select: { id: true, username: true } 
+    });
+
+    if (!user) {
+      return res.status(403).json({ error: "Forbidden: User not found or inactive" });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Error in token authentication:', error);
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(403).json({ error: "Forbidden: Invalid token" });
+    }
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
       include: {
         bulan: true,
         kategori: true,
@@ -119,12 +143,42 @@ const getUserById = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    response = user;
+    res.json(new Response.Success(false, "Profile retrieved successfully", user));
   } catch (error) {
-    console.error("Error fetching user:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error fetching user profile:", error);
+    res.status(500).json(new Response.Error(true, "Internal Server Error"));
   }
-  res.json(response);
 };
+// const getUserById = async (req, res) => {
+//   let response = null;
+//   try {
+//     const { userId } = req.params;
+//     if (isNaN(userId)) {
+//       return res.status(400).json({ error: "Invalid userId" });
+//     }
 
-module.exports = { signUp, logIn, getUserById };
+//     const user = await prisma.user.findUnique({
+//       where: {
+//         id: parseInt(userId)
+//       },
+//       include: {
+//         bulan: true,
+//         kategori: true,
+//         asalUang: true,
+//         budget: true
+//       }
+//     });
+
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     response = user;
+//   } catch (error) {
+//     console.error("Error fetching user:", error);
+//     return res.status(500).json({ error: "Internal Server Error" });
+//   }
+//   res.json(response);
+// };
+
+module.exports = { signUp, logIn, getUserProfile, authenticateToken };

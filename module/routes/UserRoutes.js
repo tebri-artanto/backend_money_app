@@ -8,7 +8,7 @@ router.post("/login", authController.logIn);
 //router.use(auth);
 // router.get("/users", authController.showAllUsers);
 // router.get("/user/:userId/activities", authController.getUserActivities);
-router.get("/:userId", authController.getUserById);
+router.get("/profile", authController.authenticateToken, authController.getUserProfile);
 // router.post("/login", authController.logIn);
 
 module.exports = router;
