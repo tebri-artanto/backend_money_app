@@ -9,6 +9,7 @@ router.post("/login", authController.logIn);
 // router.get("/users", authController.showAllUsers);
 // router.get("/user/:userId/activities", authController.getUserActivities);
 router.get("/profile", authController.authenticateToken, authController.getUserProfile);
+router.post("/logout", authController.authenticateToken, authController.logout);
 // router.post("/login", authController.logIn);
 
 module.exports = router;

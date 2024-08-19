@@ -149,36 +149,23 @@ const getUserProfile = async (req, res) => {
     res.status(500).json(new Response.Error(true, "Internal Server Error"));
   }
 };
-// const getUserById = async (req, res) => {
-//   let response = null;
-//   try {
-//     const { userId } = req.params;
-//     if (isNaN(userId)) {
-//       return res.status(400).json({ error: "Invalid userId" });
-//     }
+const logout = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-//     const user = await prisma.user.findUnique({
-//       where: {
-//         id: parseInt(userId)
-//       },
-//       include: {
-//         bulan: true,
-//         kategori: true,
-//         asalUang: true,
-//         budget: true
-//       }
-//     });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: null },
+    });
 
-//     if (!user) {
-//       return res.status(404).json({ error: "User not found" });
-//     }
+    // You might want to invalidate the token here if you're using a token blacklist
+    // For this example, we'll assume the client will discard the token
 
-//     response = user;
-//   } catch (error) {
-//     console.error("Error fetching user:", error);
-//     return res.status(500).json({ error: "Internal Server Error" });
-//   }
-//   res.json(response);
-// };
+    res.json(new Response.Success(false, "Logged out successfully", null));
+  } catch (error) {
+    console.error("Error during logout:", error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Internal Server Error"));
+  }
+};
 
-module.exports = { signUp, logIn, getUserProfile, authenticateToken };
+module.exports = { signUp, logIn, getUserProfile, authenticateToken, logout };
