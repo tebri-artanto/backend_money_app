@@ -5,6 +5,7 @@ const auth = require("../middleware/requireAuth");
 
 router.post("/register", authController.signUp);
 router.post("/login", authController.logIn);
+// router.post("/loginweb", authController.loginForWeb);
 //router.use(auth);
 // router.get("/users", authController.showAllUsers);
 // router.get("/user/:userId/activities", authController.getUserActivities);

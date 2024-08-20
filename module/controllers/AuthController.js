@@ -30,7 +30,6 @@ const signUp = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const logIn = async (req, res) => {
   let response = null;
   const signInErrorMessage = "Invalid username or password";
@@ -56,34 +55,35 @@ const logIn = async (req, res) => {
     const createJwtToken = jwt.sign({ id: user.id }, process.env.KEY);
 
     console.log("User logged in:", user.username);
-    console.log(request.fcmToken);
-    // Update FCM token
+
     if (request.fcmToken) {
+      console.log("FCM Token provided:", request.fcmToken);
+      // Update FCM token
       await prisma.user.update({
         where: { id: user.id },
         data: { fcmToken: request.fcmToken },
       });
       user.fcmToken = request.fcmToken;
 
-      // Send notification
-     
-    }
-    if (user.fcmToken) {
-       console.log("Sending notification to:", user.fcmToken);
-      const message = {
-        notification: {
-          title: 'New Login',
-          body: 'You have successfully logged in.',
-        },
-        token: user.fcmToken,
-      };
+      if (user.fcmToken) {
+        console.log("Sending notification to:", user.fcmToken);
+        const message = {
+          notification: {
+            title: 'New Login',
+            body: 'You have successfully logged in.',
+          },
+          token: user.fcmToken,
+        };
 
-      try {
-        await admin.messaging().send(message);
-        console.log('Successfully sent login notification');
-      } catch (error) {
-        console.error('Error sending login notification:', error);
+        try {
+          await admin.messaging().send(message);
+          console.log('Successfully sent login notification');
+        } catch (error) {
+          console.error('Error sending login notification:', error);
+        }
       }
+    } else {
+      console.log("Web login - no FCM token provided");
     }
 
     const data = { token: createJwtToken, user };
@@ -94,6 +94,8 @@ const logIn = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+
+
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -158,8 +160,6 @@ const logout = async (req, res) => {
       data: { fcmToken: null },
     });
 
-    // You might want to invalidate the token here if you're using a token blacklist
-    // For this example, we'll assume the client will discard the token
 
     res.json(new Response.Success(false, "Logged out successfully", null));
   } catch (error) {
