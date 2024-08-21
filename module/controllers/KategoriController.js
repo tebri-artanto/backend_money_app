@@ -108,11 +108,18 @@ const getKategoriById = async (req, res) => {
 
 const getKategoriByUserId = async (req, res) => {
   const userId = parseInt(req.params.id);
+  const jenisKategori = req.query.jenisKategori;
 
   try {
-    const kategori = await prisma.kategori.findMany({
-      where: { userId },
-    });
+    let kategoriQuery = {
+      where: { userId: userId }
+    };
+
+    if (jenisKategori) {
+      kategoriQuery.where.jenisKategori = jenisKategori;
+    }
+
+    const kategori = await prisma.kategori.findMany(kategoriQuery);
 
     response = new Response.Success(false, 'Kategori retrieved successfully', kategori);
     res.status(httpStatus.OK).json(response);

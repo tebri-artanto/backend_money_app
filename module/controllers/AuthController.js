@@ -14,18 +14,63 @@ const signUp = async (req, res) => {
     const { name, username, email, password } = await userValidator.validateAsync(req.body);
 
     const hashedPassword = await bcrypt.hash(password);
-    const user = await prisma.user.create({
-      data: {
-        name,
-        username,
-        email,
-        password: hashedPassword,
-      },
+    
+    // Default kategori data with jenisKategori
+    const defaultKategori = [
+      { namaKategori: 'Makanan', jenisKategori: 'Pengeluaran' },
+      { namaKategori: 'Transportasi', jenisKategori: 'Pengeluaran' },
+      { namaKategori: 'Belanja', jenisKategori: 'Pengeluaran' },
+      { namaKategori: 'Hiburan', jenisKategori: 'Pengeluaran' },
+      { namaKategori: 'Gaji', jenisKategori: 'Pemasukan' },
+      { namaKategori: 'Bonus', jenisKategori: 'Pemasukan' },
+      { namaKategori: 'Investasi', jenisKategori: 'Pemasukan' },
+    ];
+
+    const defaultAsalUang = [
+      { tipeAsalUang: 'Cash' },
+      { tipeAsalUang: 'Rekening' },
+      { tipeAsalUang: 'Dompet Digital' },
+    ];
+
+    const user = await prisma.$transaction(async (prisma) => {
+      // Create user
+      const newUser = await prisma.user.create({
+        data: {
+          name,
+          username,
+          email,
+          password: hashedPassword,
+        },
+      });
+
+      // Create kategori for the new user
+      await Promise.all(defaultKategori.map(kategori => 
+        prisma.kategori.create({
+          data: {
+            namaKategori: kategori.namaKategori,
+            jenisKategori: kategori.jenisKategori,
+            userId: newUser.id,
+          },
+        })
+      ));
+
+      // Create asal uang for the new user
+      await Promise.all(defaultAsalUang.map(asalUang => 
+        prisma.asalUang.create({
+          data: {
+            ...asalUang,
+            userId: newUser.id,
+          },
+        })
+      ));
+
+      return newUser;
     });
 
     response = new Response.Success(false, "Signup Success", user);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
+    console.error("Signup error:", error);
     response = new Response.Error(true, error.message);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }

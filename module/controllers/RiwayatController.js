@@ -119,127 +119,93 @@ const uploadNota = async (originalname, buffer, mimetype) => {
 const addRiwayat = async (req, res) => {
   let response = null;
   try {
-    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId } =
-      req.body;
+    console.log(req.body);
 
+    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId } = req.body;
     const { originalname, buffer, mimetype } = req.file || {};
 
     const findBulan = {
       bln: new Date(tanggal).getMonth() + 1,
       tahun: new Date(tanggal).getFullYear(),
     };
-    let newBulan = null;
     let bulanId = null;
 
-    const findBudget = await prisma.budget.findFirst({
-      where: {
-        kategoriId: parseInt(kategoriId),
-        status: "Aktif",
-      },
-    });
-    const findDetailBudget = await prisma.detailBudget.findFirst({
-      where: { budgetId: findBudget.id,
-        tanggalMulai: { lte: new Date(tanggal) },
-        tanggalSelesai: { gte: new Date(tanggal) },
-       },
-    });
-
-    console.log(findDetailBudget);
+    console.log(findBulan);
 
     let detailBudgetId = null;
 
-    if (findDetailBudget !== null && tipe === "Pengeluaran") {
-      await prisma.detailBudget.update({
-        where: { id: findDetailBudget.id },
-        data: {
-          sisaBudget: { decrement: parseFloat(nominal) },
-          terpakai: { increment: parseFloat(nominal) },
+    // Only process budget for 'Pengeluaran'
+    if (tipe === "Pengeluaran") {
+      const findBudget = await prisma.budget.findFirst({
+        where: {
+          kategoriId: parseInt(kategoriId),
+          status: "Aktif",
         },
       });
+      console.log(findBudget);
 
-      detailBudgetId = findDetailBudget.id;
+      if (findBudget) {
+        const findDetailBudget = await prisma.detailBudget.findFirst({
+          where: { 
+            budgetId: findBudget.id,
+            tanggalMulai: { lte: new Date(tanggal) },
+            tanggalSelesai: { gte: new Date(tanggal) },
+          },
+        });
+
+        console.log(findDetailBudget);
+
+        if (findDetailBudget) {
+          await prisma.detailBudget.update({
+            where: { id: findDetailBudget.id },
+            data: {
+              sisaBudget: { decrement: parseFloat(nominal) },
+              terpakai: { increment: parseFloat(nominal) },
+            },
+          });
+
+          detailBudgetId = findDetailBudget.id;
+        }
+      }
     }
 
-    if (tipe === "Pemasukan") {
-      const existingBulan = await prisma.bulan.findFirst({
-        where: {
+    // Process Bulan
+    const existingBulan = await prisma.bulan.findFirst({
+      where: {
+        bln: findBulan.bln.toString(),
+        tahun: findBulan.tahun.toString(),
+        userId: parseInt(userId),
+      },
+    });
+
+    if (existingBulan) {
+      const updatedBulan = await prisma.bulan.update({
+        where: { id: existingBulan.id },
+        data: tipe === "Pemasukan" 
+          ? { pemasukan: { increment: parseFloat(nominal) }, total: { increment: parseFloat(nominal) } }
+          : { pengeluaran: { increment: parseFloat(nominal) }, total: { decrement: parseFloat(nominal) } },
+      });
+      bulanId = updatedBulan.id;
+    } else {
+      const newBulan = await prisma.bulan.create({
+        data: {
+          userId: parseInt(userId),
           bln: findBulan.bln.toString(),
           tahun: findBulan.tahun.toString(),
-          userId: parseInt(userId),
+          pemasukan: tipe === "Pemasukan" ? parseFloat(nominal) : 0,
+          pengeluaran: tipe === "Pengeluaran" ? parseFloat(nominal) : 0,
+          total: tipe === "Pemasukan" ? parseFloat(nominal) : -parseFloat(nominal),
         },
       });
-      if (existingBulan) {
-        const updatedBulan = await prisma.bulan.update({
-          where: { id: existingBulan.id },
-          data: {
-            pemasukan: { increment: parseFloat(nominal) },
-            total: { increment: parseFloat(nominal) },
-          },
-        });
-        bulanId = updatedBulan.id;
-      } else {
-        newBulan = await prisma.bulan.create({
-          data: {
-            userId: parseInt(userId),
-            bln: findBulan.bln.toString(),
-            tahun: findBulan.tahun.toString(),
-            pemasukan: parseFloat(nominal),
-            pengeluaran: 0,
-            total: parseFloat(nominal),
-          },
-        });
-        bulanId = newBulan.id;
-      }
-    } else if (tipe === "Pengeluaran") {
-      const existingBulan = await prisma.bulan.findFirst({
-        where: {
-          bln: findBulan.bln.toString(),
-          tahun: findBulan.tahun.toString(),
-          userId: parseInt(userId),
-        },
-      });
-      if (existingBulan) {
-        const updatedBulan = await prisma.bulan.update({
-          where: { id: existingBulan.id },
-          data: {
-            pengeluaran: { increment: parseFloat(nominal) },
-            total: { increment: -parseFloat(nominal) },
-          },
-        });
-        bulanId = updatedBulan.id;
-      } else {
-        newBulan = await prisma.bulan.create({
-          data: {
-            userId: parseInt(userId),
-            bln: findBulan.bln.toString(),
-            tahun: findBulan.tahun.toString(),
-            pemasukan: 0,
-            pengeluaran: parseFloat(nominal),
-            total: -parseFloat(nominal),
-          },
-        });
-        bulanId = newBulan.id;
-      }
+      bulanId = newBulan.id;
     }
 
     const date = new Date(tanggal);
     const isoTanggal = date.toISOString();
 
+    let notaId = null;
     if (req.file) {
-      const generateRandomName = () => {
-        const characters =
-          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let randomName = "";
-        for (let i = 0; i < 10; i++) {
-          randomName += characters.charAt(
-            Math.floor(Math.random() * characters.length)
-          );
-        }
-        return randomName;
-      };
-      const imageName = `${generateRandomName()}_${Date.now()}.${originalname
-        .split(".")
-        .pop()}`;
+      const imageName = `${generateRandomName()}_${Date.now()}.${originalname.split(".").pop()}`;
       const params = {
         Bucket: bucketName,
         Key: imageName,
@@ -247,60 +213,41 @@ const addRiwayat = async (req, res) => {
         ContentType: mimetype,
       };
 
-      const upload = await s3Client.send(new PutObjectCommand(params));
+      await s3Client.send(new PutObjectCommand(params));
 
       const newNota = await prisma.nota.create({
-        data: {
-          imagePath: imageName,
-        },
+        data: { imagePath: imageName },
       });
-
-      const riwayat = await prisma.riwayat.create({
-        data: {
-          tanggal: isoTanggal,
-          tipe,
-          nominal: parseFloat(nominal),
-          catatan,
-          asalUangId: parseInt(asalUangId),
-          kategoriId: parseInt(kategoriId),
-          bulanId: parseInt(bulanId),
-          notaId: parseInt(newNota.id),
-          detailBudgetId: detailBudgetId,
-        },
-      });
-
-      response = new Response.Success(
-        false,
-        "Riwayat added successfully",
-        riwayat
-      );
-      res.status(httpStatus.OK).json(response);
-    } else {
-      const riwayat = await prisma.riwayat.create({
-        data: {
-          tanggal: isoTanggal,
-          tipe,
-          nominal: parseFloat(nominal),
-          catatan,
-          asalUangId: parseInt(asalUangId),
-          kategoriId: parseInt(kategoriId),
-          bulanId: parseInt(bulanId),
-          detailBudgetId: detailBudgetId,
-        },
-      });
-
-      response = new Response.Success(
-        false,
-        "Riwayat added successfully",
-        riwayat
-      );
-      res.status(httpStatus.OK).json(response);
+      notaId = newNota.id;
     }
+
+    const riwayat = await prisma.riwayat.create({
+      data: {
+        tanggal: isoTanggal,
+        tipe,
+        nominal: parseFloat(nominal),
+        catatan,
+        asalUangId: parseInt(asalUangId),
+        kategoriId: parseInt(kategoriId),
+        bulanId: parseInt(bulanId),
+        notaId: notaId ? parseInt(notaId) : undefined,
+        detailBudgetId: detailBudgetId ? parseInt(detailBudgetId) : undefined,
+      },
+    });
+
+    response = new Response.Success(false, "Riwayat added successfully", riwayat);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
+    console.error(error);
     response = new Response.Error(true, error.message);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+
+function generateRandomName() {
+  const characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  return Array(10).fill().map(() => characters.charAt(Math.floor(Math.random() * characters.length))).join('');
+}
 
 const updateRiwayat = async (req, res) => {
   let response = null;
