@@ -184,8 +184,13 @@ const updateBudget = async (req, res) => {
 const deleteBudget = async (req, res) => {
   try {
     const { id } = req.params;
-    const budget = await prisma.budget.delete({
+
+    // Find the budget by id
+    const budget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
+      include: {
+        detailBudget: true,
+      },
     });
 
     if (!budget) {
@@ -193,25 +198,44 @@ const deleteBudget = async (req, res) => {
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
+    // Get the detail budget ids associated with the budget
+    const detailBudgetIds = budget.detailBudget.map((detail) => detail.id);
+
+    // Update riwayat records to remove references to the detail budgets
+    await prisma.riwayat.updateMany({
+      where: {
+        detailBudgetId: {
+          in: detailBudgetIds,
+        },
+      },
+      data: {
+        detailBudgetId: null,
+      },
+    });
+
+    // Delete the associated detail budgets
+    await prisma.detailBudget.deleteMany({
+      where: {
+        budgetId: budget.id,
+      },
+    });
+
+    // Delete the budget
+    await prisma.budget.delete({
+      where: { id: budget.id },
+    });
+    console.log(budget);
+    console.log("masuk delete budget");
     response = new Response.Success(
       false,
-      "Budget deleted successfully",
+      "Budget and associated data deleted successfully",
       budget
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
-    if (error.code === "P2003") {
-      // This is the error code for a foreign key constraint violation in Prisma
-      response = new Response.Error(
-        true,
-        "Cannot delete budget. It is being used by other tables."
-      );
-      res.status(httpStatus.BAD_REQUEST).json(response);
-    } else {
-      response = new Response.Error(true, error.message);
-      console.error(error);
-      res.status(httpStatus.BAD_REQUEST).json(response);
-    }
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
 
@@ -267,6 +291,7 @@ const getBudgetById = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+
 const getBudgetByUserId = async (req, res) => {
   const userId = parseInt(req.params.id);
 
@@ -298,6 +323,11 @@ const getBudgetByUserId = async (req, res) => {
         lastDate,
       };
     });
+
+    if (processedBudgets.length === 0) {
+      const response = new Response.Error(true, "User does not have any budget");
+      return res.status(httpStatus.NOT_FOUND).json(response);
+    }
 
     response = new Response.Success(
       false,

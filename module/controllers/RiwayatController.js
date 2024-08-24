@@ -133,38 +133,45 @@ const addRiwayat = async (req, res) => {
     console.log(findBulan);
 
     let detailBudgetId = null;
-
+console.log(tipe);
+console.log(kategoriId);
     // Only process budget for 'Pengeluaran'
     if (tipe === "Pengeluaran") {
-      const findBudget = await prisma.budget.findFirst({
+      const findBudgets = await prisma.budget.findMany({
         where: {
           kategoriId: parseInt(kategoriId),
           status: "Aktif",
         },
       });
-      console.log(findBudget);
+      console.log(findBudgets);
 
-      if (findBudget) {
-        const findDetailBudget = await prisma.detailBudget.findFirst({
-          where: { 
-            budgetId: findBudget.id,
-            tanggalMulai: { lte: new Date(tanggal) },
-            tanggalSelesai: { gte: new Date(tanggal) },
-          },
-        });
-
-        console.log(findDetailBudget);
-
-        if (findDetailBudget) {
-          await prisma.detailBudget.update({
-            where: { id: findDetailBudget.id },
-            data: {
-              sisaBudget: { decrement: parseFloat(nominal) },
-              terpakai: { increment: parseFloat(nominal) },
+      if (findBudgets.length > 0) {
+        console.log("masuk sini");
+        for (const budget of findBudgets) {
+          console.log(budget.id);
+          console.log(new Date(tanggal));
+          const findDetailBudget = await prisma.detailBudget.findFirst({
+            where: {
+              budgetId: budget.id,
+              tanggalMulai: { lte: new Date(tanggal) },
+              tanggalSelesai: { gte: new Date(tanggal) },
             },
           });
 
-          detailBudgetId = findDetailBudget.id;
+          console.log(findDetailBudget);
+
+          if (findDetailBudget) {
+            await prisma.detailBudget.update({
+              where: { id: findDetailBudget.id },
+              data: {
+                sisaBudget: { decrement: parseFloat(nominal) },
+                terpakai: { increment: parseFloat(nominal) },
+              },
+            });
+
+            detailBudgetId = findDetailBudget.id;
+            break;
+          }
         }
       }
     }
