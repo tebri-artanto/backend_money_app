@@ -13,32 +13,33 @@ const getWeeklyExpenseIncome = async (req, res) => {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
 
     const weeklyData = await prisma.riwayat.groupBy({
-        by: ['tipe'],
-        where: {
-          tanggal: {
-            gte: startOfWeek,
-            lte: endOfWeek,
-          },
-          bulan: {
-            user: {
-              id: parseInt(userId),
-            },
+      by: ['tipe', 'tanggal'],
+      where: {
+        tanggal: {
+          gte: startOfWeek,
+          lte: endOfWeek,
+        },
+        bulan: {
+          user: {
+            id: parseInt(userId),
           },
         },
-        _sum: {
-          nominal: true,
-        },
-      });
+      },
+      _sum: {
+        nominal: true,
+      },
+    });
 
     const expenseByDay = {};
     const incomeByDay = {};
 
     weeklyData.forEach((data) => {
-      const { tipe, day, _sum } = data;
+      const { tipe, tanggal, _sum } = data;
+      const day = tanggal.getDay();
       if (tipe === 'Pengeluaran') {
-        expenseByDay[day] = _sum.nominal;
+        expenseByDay[day] = (_sum.nominal || 0) + (expenseByDay[day] || 0);
       } else if (tipe === 'Pemasukan') {
-        incomeByDay[day] = _sum.nominal;
+        incomeByDay[day] = (_sum.nominal || 0) + (incomeByDay[day] || 0);
       }
     });
 
@@ -46,21 +47,18 @@ const getWeeklyExpenseIncome = async (req, res) => {
       'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'
     ];
 
-    const weeklyExpenseIncome = daysOfWeek.map((day) => ({
+    const weeklyExpenseIncome = daysOfWeek.map((day, index) => ({
       day,
-      expense: expenseByDay[day] || 0,
-      income: incomeByDay[day] || 0,
+      expense: expenseByDay[index] || 0,
+      income: incomeByDay[index] || 0,
     }));
 
-    res.json(weeklyExpenseIncome);
+    res.json(new Response.Success(false, 'Weekly expense and income retrieved successfully', weeklyExpenseIncome));
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json(new Response.Error(true, 'Internal server error'));
   }
 };
-// In your backend controller file (e.g., riwayatController.js)
-
-// In your backend controller file (e.g., riwayatController.js)
 
 const getRiwayatByUserIdAndTimeframe = async (req, res) => {
   let response = null;
@@ -95,8 +93,6 @@ const getWeeklyRiwayat = async (userId) => {
   endDate.setDate(startDate.getDate() + 6);
   endDate.setHours(23, 59, 59, 999);
 
-  console.log(startDate.toISOString(), endDate.toISOString());
-  console.log(userId);
   const riwayat = await prisma.riwayat.findMany({
     where: {
       bulan: {
@@ -106,38 +102,41 @@ const getWeeklyRiwayat = async (userId) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
-      tipe: 'Pengeluaran', // Filter by expense type
     },
     include: {
       kategori: true,
     },
   });
-  // console.log(riwayat);
 
-  // Group the expenses by Kategori
   const expensesByKategori = {};
+  const incomeByKategori = {};
+
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (!expensesByKategori[kategoriName]) {
-      expensesByKategori[kategoriName] = 0;
+    if (item.tipe === 'Pengeluaran') {
+      if (!expensesByKategori[kategoriName]) {
+        expensesByKategori[kategoriName] = 0;
+      }
+      expensesByKategori[kategoriName] += item.nominal;
+    } else if (item.tipe === 'Pemasukan') {
+      if (!incomeByKategori[kategoriName]) {
+        incomeByKategori[kategoriName] = 0;
+      }
+      incomeByKategori[kategoriName] += item.nominal;
     }
-    expensesByKategori[kategoriName] += item.nominal;
   });
 
   return new Response.Success(
     false,
     'Riwayat retrieved successfully',
-    expensesByKategori
+    { expenses: expensesByKategori, income: incomeByKategori }
   );
 };
 
 const getMonthlyRiwayat = async (userId) => {
-  console.log('monthly');
   const currentDate = new Date();
   const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
-
-  console.log(startDate.toISOString(), endDate.toISOString());
 
   const riwayat = await prisma.riwayat.findMany({
     where: {
@@ -148,40 +147,47 @@ const getMonthlyRiwayat = async (userId) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
-      tipe: 'Pengeluaran', // Filter by expense type
     },
     include: {
       kategori: true,
     },
   });
-  // console.log(riwayat);
 
-  // Group the expenses by Kategori
   const expensesByKategori = {};
+  const incomeByKategori = {};
+
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (!expensesByKategori[kategoriName]) {
-      expensesByKategori[kategoriName] = 0;
+    if (item.tipe === 'Pengeluaran') {
+      if (!expensesByKategori[kategoriName]) {
+        expensesByKategori[kategoriName] = 0;
+      }
+      expensesByKategori[kategoriName] += item.nominal;
+    } else if (item.tipe === 'Pemasukan') {
+      if (!incomeByKategori[kategoriName]) {
+        incomeByKategori[kategoriName] = 0;
+      }
+      incomeByKategori[kategoriName] += item.nominal;
     }
-    expensesByKategori[kategoriName] += item.nominal;
   });
 
   return new Response.Success(
     false,
     'Riwayat retrieved successfully',
-    expensesByKategori
+    { expenses: expensesByKategori, income: incomeByKategori }
   );
 };
-const getRincianPengeluaranByUserIdAndTimeframe = async (req, res) => {
+
+const getRincianByUserIdAndTimeframe = async (req, res) => {
   let response = null;
   try {
     const userId = req.params.id;
     const timeframe = req.query.timeframe;
 
     if (timeframe === 'weekly') {
-      response = await getWeeklyRincianPengeluaran(userId);
+      response = await getWeeklyRincian(userId);
     } else if (timeframe === 'monthly') {
-      response = await getMonthlyRincianPengeluaran(userId);
+      response = await getMonthlyRincian(userId);
     } else {
       throw new Error('Invalid timeframe');
     }
@@ -193,7 +199,7 @@ const getRincianPengeluaranByUserIdAndTimeframe = async (req, res) => {
   }
 };
 
-const getWeeklyRincianPengeluaran = async (userId) => {
+const getWeeklyRincian = async (userId) => {
   const currentDate = new Date();
   const currentDay = currentDate.getDay();
   const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
@@ -205,9 +211,6 @@ const getWeeklyRincianPengeluaran = async (userId) => {
   endDate.setDate(startDate.getDate() + 6);
   endDate.setHours(23, 59, 59, 999);
 
-  console.log(startDate.toISOString(), endDate.toISOString());
-  console.log(userId);
-
   const riwayat = await prisma.riwayat.findMany({
     where: {
       bulan: {
@@ -217,38 +220,42 @@ const getWeeklyRincianPengeluaran = async (userId) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
-      tipe: 'Pengeluaran', // Filter by expense type
     },
     include: {
       kategori: true,
     },
   });
 
-  // Group the expenses by Kategori
   const rincianPengeluaran = {};
+  const rincianPemasukan = {};
+
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (!rincianPengeluaran[kategoriName]) {
-      rincianPengeluaran[kategoriName] = 0;
+    if (item.tipe === 'Pengeluaran') {
+      if (!rincianPengeluaran[kategoriName]) {
+        rincianPengeluaran[kategoriName] = 0;
+      }
+      rincianPengeluaran[kategoriName] += item.nominal;
+    } else if (item.tipe === 'Pemasukan') {
+      if (!rincianPemasukan[kategoriName]) {
+        rincianPemasukan[kategoriName] = 0;
+      }
+      rincianPemasukan[kategoriName] += item.nominal;
     }
-    rincianPengeluaran[kategoriName] += item.nominal;
   });
 
   return new Response.Success(
     false,
-    'Rincian pengeluaran retrieved successfully',
-    rincianPengeluaran
+    'Rincian retrieved successfully',
+    { pengeluaran: rincianPengeluaran, pemasukan: rincianPemasukan }
   );
 };
 
-const getMonthlyRincianPengeluaran = async (userId) => {
-  console.log('monthly');
+const getMonthlyRincian = async (userId) => {
   const currentDate = new Date();
   const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
-  console.log(startDate.toISOString(), endDate.toISOString());
-
   const riwayat = await prisma.riwayat.findMany({
     where: {
       bulan: {
@@ -258,33 +265,39 @@ const getMonthlyRincianPengeluaran = async (userId) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
-      tipe: 'Pengeluaran', // Filter by expense type
     },
     include: {
       kategori: true,
     },
   });
 
-  // Group the expenses by Kategori
   const rincianPengeluaran = {};
+  const rincianPemasukan = {};
+
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (!rincianPengeluaran[kategoriName]) {
-      rincianPengeluaran[kategoriName] = 0;
+    if (item.tipe === 'Pengeluaran') {
+      if (!rincianPengeluaran[kategoriName]) {
+        rincianPengeluaran[kategoriName] = 0;
+      }
+      rincianPengeluaran[kategoriName] += item.nominal;
+    } else if (item.tipe === 'Pemasukan') {
+      if (!rincianPemasukan[kategoriName]) {
+        rincianPemasukan[kategoriName] = 0;
+      }
+      rincianPemasukan[kategoriName] += item.nominal;
     }
-    rincianPengeluaran[kategoriName] += item.nominal;
   });
 
   return new Response.Success(
     false,
-    'Rincian pengeluaran retrieved successfully',
-    rincianPengeluaran
+    'Rincian retrieved successfully',
+    { pengeluaran: rincianPengeluaran, pemasukan: rincianPemasukan }
   );
 };
 
-// Add this new route in your backend routes file (e.g., riwayatRoutes.js)
-
-module.exports = { getWeeklyExpenseIncome,
+module.exports = {
+  getWeeklyExpenseIncome,
   getRiwayatByUserIdAndTimeframe,
-  getRincianPengeluaranByUserIdAndTimeframe
- };
+  getRincianByUserIdAndTimeframe
+};
