@@ -13,9 +13,28 @@ const signUp = async (req, res) => {
   try {
     const { name, username, email, password } = await userValidator.validateAsync(req.body);
 
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      response = new Response.Error(true, "Email already in use");
+      res.status(httpStatus.CONFLICT).json(response);
+      return;
+    }
+
+    const existingUsername = await prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (existingUsername) {
+      response = new Response.Error(true, "Username already taken");
+      res.status(httpStatus.CONFLICT).json(response);
+      return;
+    }
+
     const hashedPassword = await bcrypt.hash(password);
     
-    // Default kategori data with jenisKategori
     const defaultKategori = [
       { namaKategori: 'Makanan', jenisKategori: 'Pengeluaran' },
       { namaKategori: 'Transportasi', jenisKategori: 'Pengeluaran' },
@@ -33,7 +52,6 @@ const signUp = async (req, res) => {
     ];
 
     const user = await prisma.$transaction(async (prisma) => {
-      // Create user
       const newUser = await prisma.user.create({
         data: {
           name,
@@ -43,7 +61,6 @@ const signUp = async (req, res) => {
         },
       });
 
-      // Create kategori for the new user
       await Promise.all(defaultKategori.map(kategori => 
         prisma.kategori.create({
           data: {
@@ -54,7 +71,6 @@ const signUp = async (req, res) => {
         })
       ));
 
-      // Create asal uang for the new user
       await Promise.all(defaultAsalUang.map(asalUang => 
         prisma.asalUang.create({
           data: {
@@ -68,13 +84,14 @@ const signUp = async (req, res) => {
     });
 
     response = new Response.Success(false, "Signup Success", user);
-    res.status(httpStatus.OK).json(response);
+    res.status(httpStatus.CREATED).json(response);
   } catch (error) {
     console.error("Signup error:", error);
     response = new Response.Error(true, error.message);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+
 const logIn = async (req, res) => {
   let response = null;
   const signInErrorMessage = "Invalid username or password";
@@ -103,7 +120,6 @@ const logIn = async (req, res) => {
 
     if (request.fcmToken) {
       console.log("FCM Token provided:", request.fcmToken);
-      // Update FCM token
       await prisma.user.update({
         where: { id: user.id },
         data: { fcmToken: request.fcmToken },
@@ -213,4 +229,79 @@ const logout = async (req, res) => {
   }
 };
 
-module.exports = { signUp, logIn, getUserProfile, authenticateToken, logout };
+const editProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, username, email } = req.body;
+
+    // Validate input
+    if (!name && !username && !email) {
+      return res.status(httpStatus.BAD_REQUEST).json(new Response.Error(true, "At least one field (name, username, or email) must be provided"));
+    }
+
+    // Check if username or email already exists
+    if (username) {
+      const existingUser = await prisma.user.findUnique({ where: { username } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Username already taken"));
+      }
+    }
+
+    if (email) {
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Email already in use"));
+      }
+    }
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name || undefined,
+        username: username || undefined,
+        email: email || undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+      }
+    });
+
+    res.json(new Response.Success(false, "Profile updated successfully", updatedUser));
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Internal Server Error"));
+  }
+};
+  const changePassword = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { currentPassword, newPassword } = req.body;
+  
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+  
+      if (!user) {
+        return res.status(404).json(new Response.Error(true, "User not found"));
+      }
+  
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json(new Response.Error(true, "Current password is incorrect"));
+      }
+  
+      const hashedNewPassword = await bcrypt.hash(newPassword);
+  
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedNewPassword },
+      });
+  
+      res.json(new Response.Success(false, "Password changed successfully"));
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json(new Response.Error(true, "Internal Server Error"));
+    }
+  };
+
+module.exports = { signUp, logIn, getUserProfile, authenticateToken, logout, editProfile, changePassword };
