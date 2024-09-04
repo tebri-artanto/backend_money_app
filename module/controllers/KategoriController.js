@@ -7,13 +7,13 @@ let response = null;
 
 const addKategori = async (req, res) => {
   try {
-    const { namaKategori, userId, grupId } = req.body;
+    const { namaKategori, userId, jenisKategori } = req.body;
 
     const kategori = await prisma.kategori.create({
       data: {
         namaKategori,
         userId: parseInt(userId),
-        grupId: parseInt(grupId),
+        jenisKategori,
       },
     });
 

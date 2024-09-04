@@ -294,10 +294,64 @@ const getMonthlyRincian = async (userId) => {
     'Rincian retrieved successfully',
     { pengeluaran: rincianPengeluaran, pemasukan: rincianPemasukan }
   );
+
+  
 };
 
+const getWeeklyIncomeExpenseChart = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    const riwayatData = await prisma.riwayat.findMany({
+      where: {
+        tanggal: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        bulan: {
+          user: {
+            id: parseInt(userId),
+          },
+        },
+      },
+      select: {
+        tanggal: true,
+        tipe: true,
+        nominal: true,
+      },
+    });
+
+    // Initialize weekly totals
+    const weeklyTotals = Array.from({ length: 5 }, () => ({ income: 0, expense: 0 }));
+
+    riwayatData.forEach((data) => {
+      const weekIndex = Math.floor((data.tanggal.getDate() - 1) / 7);
+      
+      if (data.tipe === 'Pemasukan') {
+        weeklyTotals[weekIndex].income += data.nominal;
+      } else if (data.tipe === 'Pengeluaran') {
+        weeklyTotals[weekIndex].expense += data.nominal;
+      }
+    });
+
+    const chartData = weeklyTotals.map((total, index) => ({
+      week: `Minggu ${index + 1}`,
+      income: total.income,
+      expense: total.expense,
+    }));
+
+    res.status(httpStatus.OK).json(new Response.Success(false, 'Weekly income and expense data retrieved successfully', chartData));
+  } catch (error) {
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, 'Internal server error'));
+  }
+};
 module.exports = {
   getWeeklyExpenseIncome,
   getRiwayatByUserIdAndTimeframe,
-  getRincianByUserIdAndTimeframe
+  getRincianByUserIdAndTimeframe,
+  getWeeklyIncomeExpenseChart,
 };

@@ -9,13 +9,13 @@ let response = null
 
 const addAsalUang = async (req, res) => {
   try {
-    const { tipeAsalUang, userId, grupId } = req.body;
+    const { tipeAsalUang, userId, } = req.body;
 
     const asalUang = await prisma.asalUang.create({
       data: {
         tipeAsalUang,
         userId: parseInt(userId),
-        grupId: parseInt(grupId),
+        // grupId: parseInt(grupId),
       },
     });
 
@@ -51,7 +51,7 @@ const deleteAsalUang = async (req, res) => {
     const { id } = req.params;
 
     const asalUang = await prisma.asalUang.delete({
-      where: { id },
+      where: { id: Number(id) },
     });
 
     response = new Response.Success(false, 'AsalUang deleted successfully', asalUang);

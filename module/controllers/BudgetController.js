@@ -291,9 +291,9 @@ const getBudgetById = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const getBudgetByUserId = async (req, res) => {
   const userId = parseInt(req.params.id);
+  const today = new Date();
 
   try {
     const budgets = await prisma.budget.findMany({
@@ -311,28 +311,41 @@ const getBudgetByUserId = async (req, res) => {
     const processedBudgets = budgets.map(budget => {
       let firstDate = null;
       let lastDate = null;
+      let activeDetailBudget = null;
 
       if (budget.detailBudget.length > 0) {
         firstDate = budget.detailBudget[0].tanggalMulai;
         lastDate = budget.detailBudget[budget.detailBudget.length - 1].tanggalSelesai;
+        activeDetailBudget = budget.detailBudget.find(detail => 
+          new Date(detail.tanggalMulai) <= today && new Date(detail.tanggalSelesai) >= today
+        );
       }
 
       return {
         ...budget,
         firstDate,
         lastDate,
+        activeDetailBudget,
+        isActive: !!activeDetailBudget
       };
     });
 
-    if (processedBudgets.length === 0) {
+    // Sort budgets: active ones first, then inactive ones
+    const sortedBudgets = processedBudgets.sort((a, b) => {
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      return 0;
+    });
+
+    if (sortedBudgets.length === 0) {
       const response = new Response.Error(true, "User does not have any budget");
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
     response = new Response.Success(
       false,
-      "Budget retrieved successfully",
-      processedBudgets
+      "Budgets retrieved successfully",
+      sortedBudgets
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {

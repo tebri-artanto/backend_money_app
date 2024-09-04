@@ -11,5 +11,6 @@ router.get("/user/:id/riwayat",  chartController.getRiwayatByUserIdAndTimeframe)
 
 // Get detailed breakdown (rincian) by user ID and timeframe
 router.get('/user/:id/rincian',  chartController.getRincianByUserIdAndTimeframe);
+router.get('/weekly-income-expense/:userId', chartController.getWeeklyIncomeExpenseChart);
 
 module.exports = router;
