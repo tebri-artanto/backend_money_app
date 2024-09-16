@@ -272,6 +272,8 @@ const updateRiwayat = async (req, res) => {
       where: { id: Number(id) },
       include: {
         nota: true,
+        detailBudget: true,
+        kategori: true,
       },
     });
 
@@ -283,7 +285,6 @@ const updateRiwayat = async (req, res) => {
     let notaId = existingRiwayat.notaId;
 
     if (req.file) {
-      // Delete the existing image from S3 if there is one
       if (existingRiwayat.nota) {
         const params = {
           Bucket: bucketName,
@@ -293,18 +294,6 @@ const updateRiwayat = async (req, res) => {
         await prisma.nota.delete({ where: { id: existingRiwayat.notaId } });
       }
 
-      // Upload the new image to S3
-      const generateRandomName = () => {
-        const characters =
-          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let randomName = "";
-        for (let i = 0; i < 10; i++) {
-          randomName += characters.charAt(
-            Math.floor(Math.random() * characters.length)
-          );
-        }
-        return randomName;
-      };
       const imageName = `${generateRandomName()}_${Date.now()}.${originalname
         .split(".")
         .pop()}`;
@@ -322,22 +311,84 @@ const updateRiwayat = async (req, res) => {
     }
 
     const date = new Date(tanggal);
-
     const isoTanggal = date.toISOString();
 
-    const updatedRiwayat = await prisma.riwayat.update({
-      where: { id: Number(id) },
-      data: {
-        tanggal: isoTanggal,
-        tipe,
-        nominal: parseFloat(nominal),
-        catatan,
-        asalUangId: parseInt(asalUangId),
-        kategoriId: parseInt(kategoriId),
-        bulanId: parseInt(bulanId),
-        notaId,
-      },
-    });
+    let updatedRiwayat;
+
+    // Check if the kategori is changed
+    if (existingRiwayat.kategoriId !== parseInt(kategoriId)) {
+      // Remove the nominal from the old detailBudget if it exists
+      if (existingRiwayat.detailBudget) {
+        await prisma.detailBudget.update({
+          where: { id: existingRiwayat.detailBudget.id },
+          data: {
+            sisaBudget: { increment: parseFloat(existingRiwayat.nominal) },
+            terpakai: { decrement: parseFloat(existingRiwayat.nominal) },
+          },
+        });
+      }
+
+      // Find the new budget based on the new kategoriId
+      const newBudget = await prisma.budget.findFirst({
+        where: {
+          kategoriId: parseInt(kategoriId),
+          status: "Aktif",
+        },
+      });
+
+      let detailBudgetId = null;
+      if (newBudget) {
+        const findDetailBudget = await prisma.detailBudget.findFirst({
+          where: {
+            budgetId: newBudget.id,
+            tanggalMulai: { lte: new Date(tanggal) },
+            tanggalSelesai: { gte: new Date(tanggal) },
+          },
+        });
+
+        if (findDetailBudget) {
+          await prisma.detailBudget.update({
+            where: { id: findDetailBudget.id },
+            data: {
+              sisaBudget: { decrement: parseFloat(nominal) },
+              terpakai: { increment: parseFloat(nominal) },
+            },
+          });
+
+          detailBudgetId = findDetailBudget.id;
+        }
+      }
+
+      // Update the riwayat with the new kategoriId and detailBudgetId
+      updatedRiwayat = await prisma.riwayat.update({
+        where: { id: Number(id) },
+        data: {
+          tanggal: isoTanggal,
+          tipe,
+          nominal: parseFloat(nominal),
+          catatan,
+          asalUangId: parseInt(asalUangId),
+          kategoriId: parseInt(kategoriId),
+          bulanId: parseInt(bulanId),
+          notaId,
+          detailBudgetId,
+        },
+      });
+    } else {
+      // If the kategori is not changed, update the riwayat without changing the detailBudgetId
+      updatedRiwayat = await prisma.riwayat.update({
+        where: { id: Number(id) },
+        data: {
+          tanggal: isoTanggal,
+          tipe,
+          nominal: parseFloat(nominal),
+          catatan,
+          asalUangId: parseInt(asalUangId),
+          bulanId: parseInt(bulanId),
+          notaId,
+        },
+      });
+    }
 
     response = new Response.Success(
       false,
@@ -346,11 +397,11 @@ const updateRiwayat = async (req, res) => {
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
+    console.error(error);
     response = new Response.Error(true, error.message);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const deleteRiwayat = async (req, res) => {
   let response = null;
   try {

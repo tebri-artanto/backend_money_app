@@ -54,6 +54,7 @@ const addBudget = async (req, res) => {
     });
 
     if (findBudget.length > 0) {
+      console.log("budget already exists");
       response = new Response.Error(true, "Budget already exists for the given date range");
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
@@ -76,28 +77,53 @@ const addBudget = async (req, res) => {
 
     while (!endDate || currentDate <= endDate) {
       const nextDate = getNextDate(currentDate, frekuensi);
-      
+
+      // Check if there are any riwayat with the same kategori within the budget date range
+      const riwayatPengeluaran = await prisma.riwayat.findMany({
+        where: {
+          tanggal: {
+            gte: currentDate,
+            lt: nextDate,
+          },
+          kategoriId: parseInt(kategoriId),
+          tipe: "Pengeluaran",
+        },
+      });
+
+      const totalPengeluaran = riwayatPengeluaran.reduce((total, riwayat) => total + riwayat.nominal, 0);
+
       const detailBudgetData = {
         budgetId: budget.id,
-        sisaBudget: parseFloat(jumlahBudget),
-        terpakai: 0,
+        sisaBudget: parseFloat(jumlahBudget) - totalPengeluaran,
+        terpakai: totalPengeluaran,
         tanggalMulai: currentDate,
         tanggalSelesai: nextDate,
         pengulangan: iteration,
       };
 
-      detailBudgets.push(detailBudgetData);
+      const detailBudget = await prisma.detailBudget.create({ data: detailBudgetData });
+
+      // Update detailBudgetId in the related riwayat
+      await prisma.riwayat.updateMany({
+        where: {
+          id: {
+            in: riwayatPengeluaran.map((riwayat) => riwayat.id),
+          },
+        },
+        data: {
+          detailBudgetId: detailBudget.id,
+        },
+      });
+
+      detailBudgets.push(detailBudget);
 
       currentDate = nextDate;
       iteration++;
 
-      if (!endDate && iteration > 1) break; 
+      if (!endDate && iteration > 1) break;
     }
 
-    await prisma.detailBudget.createMany({
-      data: detailBudgets,
-    });
-
+    console.log("berhasil add budget");
     response = new Response.Success(false, "Budget added successfully", budget);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
@@ -124,54 +150,96 @@ function getNextDate(currentDate, frekuensi) {
   return nextDate;
 }
 
-
 const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      kategoriId,
-      userId,
-      grupId,
-      jumlahBudget,
-      frekuensi,
-      tanggalMulai,
-      tanggalSelesai,
-      pengulangan,
-    } = req.body;
+    const { kategoriId, jumlahBudget } = req.body;
 
-    const budgetData = {
-      jumlahBudget: parseFloat(jumlahBudget),
-      kategoriId: parseInt(kategoriId),
-      userId: parseInt(userId),
-      grupId: parseInt(grupId),
-      frekuensi: frekuensi,
-      tanggalMulai: new Date(tanggalMulai),
-      pengulangan: pengulangan,
-      sisaBudget: parseFloat(jumlahBudget),
-    };
-
-    if (tanggalSelesai && !isNaN(new Date(tanggalSelesai).getTime())) {
-      budgetData.tanggalSelesai = new Date(tanggalSelesai);
-    }
-
-    if (new Date() >= budgetData.tanggalMulai) {
-      budgetData.status = "Aktif";
-    }
-
-    const budget = await prisma.budget.update({
+    // Fetch the existing budget
+    const existingBudget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
-      data: budgetData,
+      include: { detailBudget: true },
     });
 
-    if (!budget) {
+    if (!existingBudget) {
       response = new Response.Error(true, "Budget not found");
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
+    // Check for overlapping date ranges
+    const overlappingBudgets = await prisma.budget.findMany({
+      where: {
+        id: { not: parseInt(id) },
+        userId: existingBudget.userId,
+        kategoriId: parseInt(kategoriId),
+        grupId: existingBudget.grupId,
+        detailBudget: {
+          some: {
+            OR: existingBudget.detailBudget.map(detail => ({
+              OR: [
+                {
+                  AND: [
+                    { tanggalMulai: { lte: detail.tanggalMulai } },
+                    { tanggalSelesai: { gte: detail.tanggalMulai } },
+                  ],
+                },
+                {
+                  AND: [
+                    { tanggalMulai: { lte: detail.tanggalSelesai } },
+                    { tanggalSelesai: { gte: detail.tanggalSelesai } },
+                  ],
+                },
+                {
+                  AND: [
+                    { tanggalMulai: { gte: detail.tanggalMulai } },
+                    { tanggalSelesai: { lte: detail.tanggalSelesai } },
+                  ],
+                },
+              ],
+            })),
+          },
+        },
+      },
+    });
+
+    if (overlappingBudgets.length > 0) {
+      response = new Response.Error(true, "Budget already exists for the given date range");
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
+
+    // Update the main budget
+    const updatedBudget = await prisma.budget.update({
+      where: { id: parseInt(id) },
+      data: {
+        kategoriId: parseInt(kategoriId),
+        jumlahBudget: parseFloat(jumlahBudget),
+      },
+    });
+
+    // Update all related detail budgets
+    for (const detail of existingBudget.detailBudget) {
+      const newSisaBudget = Math.max(0, parseFloat(jumlahBudget) - detail.terpakai);
+      await prisma.detailBudget.update({
+        where: { id: detail.id },
+        data: {
+          sisaBudget: newSisaBudget,
+        },
+      });
+    }
+
+    // Fetch the updated budget with its detail budgets
+    const finalBudget = await prisma.budget.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        detailBudget: true,
+        kategori: true,
+      },
+    });
+
     response = new Response.Success(
       false,
-      "Budget updated successfully",
-      budget
+      "Budget and related detail budgets updated successfully",
+      finalBudget
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
@@ -180,7 +248,6 @@ const updateBudget = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const deleteBudget = async (req, res) => {
   try {
     const { id } = req.params;
@@ -441,6 +508,80 @@ const updateBudgetStatus = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
+const getBudgetByUserIdAndMonth = async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const selectedDate = new Date(req.query.date);
+  const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59);
+
+  try {
+    const budgets = await prisma.budget.findMany({
+      where: {
+        userId: userId,
+        detailBudget: {
+          some: {
+            OR: [
+              {
+                tanggalMulai: {
+                  lte: endOfMonth,
+                },
+                tanggalSelesai: {
+                  gte: startOfMonth,
+                },
+              },
+            ],
+          },
+        },
+      },
+      include: {
+        kategori: true,
+        detailBudget: {
+          where: {
+            OR: [
+              {
+                tanggalMulai: {
+                  lte: endOfMonth,
+                },
+                tanggalSelesai: {
+                  gte: startOfMonth,
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    if (budgets.length === 0) {
+      const response = new Response.Error(true, "No budgets found for the specified month");
+      return res.status(httpStatus.NOT_FOUND).json(response);
+    }
+
+    const processedBudgets = budgets.map(budget => {
+      const relevantDetailBudgets = budget.detailBudget.map(detail => ({
+        ...detail,
+        tanggalMulai: detail.tanggalMulai < startOfMonth ? startOfMonth : detail.tanggalMulai,
+        tanggalSelesai: detail.tanggalSelesai > endOfMonth ? endOfMonth : detail.tanggalSelesai,
+      }));
+
+      return {
+        ...budget,
+        detailBudget: relevantDetailBudgets,
+      };
+    });
+
+    response = new Response.Success(
+      false,
+      "Budgets for the specified month retrieved successfully",
+      processedBudgets
+    );
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
 
 module.exports = {
   addBudget,
@@ -451,4 +592,5 @@ module.exports = {
   getBudgetByUserId,
   updateSisaBudget,
   updateBudgetStatus,
+  getBudgetByUserIdAndMonth,
 };

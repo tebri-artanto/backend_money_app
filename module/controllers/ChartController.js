@@ -6,8 +6,9 @@ const httpStatus = require("http-status");
 const getWeeklyExpenseIncome = async (req, res) => {
   try {
     const userId = req.params.userId;
+    const selectedDate = new Date(req.query.date || new Date());
 
-    const startOfWeek = new Date();
+    const startOfWeek = new Date(selectedDate);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
@@ -65,11 +66,12 @@ const getRiwayatByUserIdAndTimeframe = async (req, res) => {
   try {
     const userId = req.params.id;
     const timeframe = req.query.timeframe;
+    const selectedDate = new Date(req.query.date || new Date());
 
     if (timeframe === 'weekly') {
-      response = await getWeeklyRiwayat(userId);
+      response = await getWeeklyRiwayat(userId, selectedDate);
     } else if (timeframe === 'monthly') {
-      response = await getMonthlyRiwayat(userId);
+      response = await getMonthlyRiwayat(userId, selectedDate);
     } else {
       throw new Error('Invalid timeframe');
     }
@@ -81,12 +83,9 @@ const getRiwayatByUserIdAndTimeframe = async (req, res) => {
   }
 };
 
-const getWeeklyRiwayat = async (userId) => {
-  const currentDate = new Date();
-  const currentDay = currentDate.getDay();
-  const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
-  const startDate = new Date(currentDate);
-  startDate.setDate(currentDate.getDate() - daysToMonday);
+const getWeeklyRiwayat = async (userId, selectedDate) => {
+  const startDate = new Date(selectedDate);
+  startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
   startDate.setHours(0, 0, 0, 0);
 
   const endDate = new Date(startDate);
@@ -133,10 +132,9 @@ const getWeeklyRiwayat = async (userId) => {
   );
 };
 
-const getMonthlyRiwayat = async (userId) => {
-  const currentDate = new Date();
-  const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+const getMonthlyRiwayat = async (userId, selectedDate) => {
+  const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
   const riwayat = await prisma.riwayat.findMany({
     where: {
@@ -152,7 +150,6 @@ const getMonthlyRiwayat = async (userId) => {
       kategori: true,
     },
   });
-
   const expensesByKategori = {};
   const incomeByKategori = {};
 
@@ -183,11 +180,12 @@ const getRincianByUserIdAndTimeframe = async (req, res) => {
   try {
     const userId = req.params.id;
     const timeframe = req.query.timeframe;
+    const selectedDate = new Date(req.query.date || new Date());
 
     if (timeframe === 'weekly') {
-      response = await getWeeklyRincian(userId);
+      response = await getWeeklyRincian(userId, selectedDate);
     } else if (timeframe === 'monthly') {
-      response = await getMonthlyRincian(userId);
+      response = await getMonthlyRincian(userId, selectedDate);
     } else {
       throw new Error('Invalid timeframe');
     }
@@ -199,12 +197,9 @@ const getRincianByUserIdAndTimeframe = async (req, res) => {
   }
 };
 
-const getWeeklyRincian = async (userId) => {
-  const currentDate = new Date();
-  const currentDay = currentDate.getDay();
-  const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
-  const startDate = new Date(currentDate);
-  startDate.setDate(currentDate.getDate() - daysToMonday);
+const getWeeklyRincian = async (userId, selectedDate) => {
+  const startDate = new Date(selectedDate);
+  startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
   startDate.setHours(0, 0, 0, 0);
 
   const endDate = new Date(startDate);
@@ -251,10 +246,9 @@ const getWeeklyRincian = async (userId) => {
   );
 };
 
-const getMonthlyRincian = async (userId) => {
-  const currentDate = new Date();
-  const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+const getMonthlyRincian = async (userId, selectedDate) => {
+  const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
   const riwayat = await prisma.riwayat.findMany({
     where: {
@@ -301,9 +295,9 @@ const getMonthlyRincian = async (userId) => {
 const getWeeklyIncomeExpenseChart = async (req, res) => {
   try {
     const userId = req.params.userId;
-    const currentDate = new Date();
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const selectedDate = new Date(req.query.date || new Date());
+    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
 
     const riwayatData = await prisma.riwayat.findMany({
       where: {
@@ -323,7 +317,6 @@ const getWeeklyIncomeExpenseChart = async (req, res) => {
         nominal: true,
       },
     });
-
     // Initialize weekly totals
     const weeklyTotals = Array.from({ length: 5 }, () => ({ income: 0, expense: 0 }));
 
@@ -349,6 +342,8 @@ const getWeeklyIncomeExpenseChart = async (req, res) => {
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, 'Internal server error'));
   }
 };
+
+
 module.exports = {
   getWeeklyExpenseIncome,
   getRiwayatByUserIdAndTimeframe,
