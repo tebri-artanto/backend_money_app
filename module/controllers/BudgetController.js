@@ -148,12 +148,10 @@ function getNextDate(currentDate, frekuensi) {
       throw new Error("Invalid frequency");
   }
   return nextDate;
-}
-
-const updateBudget = async (req, res) => {
+}const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
-    const { kategoriId, jumlahBudget } = req.body;
+    const { kategoriId, jumlahBudget, frekuensi, tanggalMulai, tanggalSelesai } = req.body;
 
     // Fetch the existing budget
     const existingBudget = await prisma.budget.findUnique({
@@ -175,28 +173,26 @@ const updateBudget = async (req, res) => {
         grupId: existingBudget.grupId,
         detailBudget: {
           some: {
-            OR: existingBudget.detailBudget.map(detail => ({
-              OR: [
-                {
-                  AND: [
-                    { tanggalMulai: { lte: detail.tanggalMulai } },
-                    { tanggalSelesai: { gte: detail.tanggalMulai } },
-                  ],
-                },
-                {
-                  AND: [
-                    { tanggalMulai: { lte: detail.tanggalSelesai } },
-                    { tanggalSelesai: { gte: detail.tanggalSelesai } },
-                  ],
-                },
-                {
-                  AND: [
-                    { tanggalMulai: { gte: detail.tanggalMulai } },
-                    { tanggalSelesai: { lte: detail.tanggalSelesai } },
-                  ],
-                },
-              ],
-            })),
+            OR: [
+              {
+                AND: [
+                  { tanggalMulai: { lte: new Date(tanggalMulai) } },
+                  { tanggalSelesai: { gte: new Date(tanggalMulai) } },
+                ],
+              },
+              {
+                AND: [
+                  { tanggalMulai: { lte: new Date(tanggalSelesai) } },
+                  { tanggalSelesai: { gte: new Date(tanggalSelesai) } },
+                ],
+              },
+              {
+                AND: [
+                  { tanggalMulai: { gte: new Date(tanggalMulai) } },
+                  { tanggalSelesai: { lte: new Date(tanggalSelesai) } },
+                ],
+              },
+            ],
           },
         },
       },
@@ -213,19 +209,110 @@ const updateBudget = async (req, res) => {
       data: {
         kategoriId: parseInt(kategoriId),
         jumlahBudget: parseFloat(jumlahBudget),
+        frekuensi: frekuensi,
       },
     });
 
-    // Update all related detail budgets
-    for (const detail of existingBudget.detailBudget) {
-      const newSisaBudget = Math.max(0, parseFloat(jumlahBudget) - detail.terpakai);
-      await prisma.detailBudget.update({
-        where: { id: detail.id },
-        data: {
-          sisaBudget: newSisaBudget,
+    // Delete the existing detail budgets
+    await prisma.detailBudget.deleteMany({
+      where: { budgetId: parseInt(id) },
+    });
+
+    // Create new detail budgets based on the updated date range
+    let currentDate = new Date(tanggalMulai);
+    const endDate = tanggalSelesai ? new Date(tanggalSelesai) : null;
+    let iteration = 1;
+
+    while (!endDate || currentDate <= endDate) {
+      const nextDate = getNextDate(currentDate, frekuensi);
+
+      const riwayatPengeluaran = await prisma.riwayat.findMany({
+        where: {
+          tanggal: {
+            gte: currentDate,
+            lt: nextDate,
+          },
+          kategoriId: parseInt(kategoriId),
+          tipe: "Pengeluaran",
         },
       });
+
+      const totalPengeluaran = riwayatPengeluaran.reduce((total, riwayat) => total + riwayat.nominal, 0);
+
+      const detailBudgetData = {
+        budgetId: updatedBudget.id,
+        sisaBudget: parseFloat(jumlahBudget) - totalPengeluaran,
+        terpakai: totalPengeluaran,
+        tanggalMulai: currentDate,
+        tanggalSelesai: nextDate,
+        pengulangan: iteration,
+      };
+
+      const detailBudget = await prisma.detailBudget.create({ data: detailBudgetData });
+
+      await prisma.riwayat.updateMany({
+        where: {
+          id: {
+            in: riwayatPengeluaran.map((riwayat) => riwayat.id),
+          },
+        },
+        data: {
+          detailBudgetId: detailBudget.id,
+        },
+      });
+
+      currentDate = nextDate;
+      iteration++;
+
+      if (!endDate && iteration > 1) break;
     }
+
+    // Update riwayat records that were previously associated with the budget
+    // Update riwayat records that were previously associated with the budget
+await prisma.riwayat.updateMany({
+  where: {
+    kategoriId: parseInt(kategoriId),
+    tanggal: {
+      gte: new Date(tanggalMulai),
+      lte: endDate || new Date(tanggalSelesai),
+    },
+    detailBudgetId: null,
+  },
+  data: {
+    detailBudgetId: await prisma.detailBudget.findFirst({
+      where: {
+        budgetId: updatedBudget.id,
+        tanggalMulai: { lte: new Date(tanggalMulai) },
+        tanggalSelesai: { gte: endDate || new Date(tanggalSelesai) },
+      },
+      select: { id: true },
+    }).then(detail => detail ? detail.id : undefined),
+  },
+});
+
+// Update riwayat records that were previously associated with other budgets
+await prisma.riwayat.updateMany({
+  where: {
+    kategoriId: parseInt(kategoriId),
+    tanggal: {
+      gte: new Date(tanggalMulai),
+      lte: endDate || new Date(tanggalSelesai),
+    },
+    detailBudgetId: {
+      not: null,
+    },
+  },
+  data: {
+    detailBudgetId: await prisma.detailBudget.findFirst({
+      where: {
+        budgetId: updatedBudget.id,
+        tanggalMulai: { lte: new Date(tanggalMulai) },
+        tanggalSelesai: { gte: endDate || new Date(tanggalSelesai) },
+      },
+      select: { id: true },
+    }).then(detail => detail ? detail.id : undefined),
+  },
+});
 
     // Fetch the updated budget with its detail budgets
     const finalBudget = await prisma.budget.findUnique({

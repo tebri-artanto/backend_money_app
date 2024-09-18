@@ -10,4 +10,7 @@ router.get("/user/:id/riwayat", chartController.getRiwayatByUserIdAndTimeframe);
 router.get('/user/:id/rincian', chartController.getRincianByUserIdAndTimeframe);
 router.get('/weekly-income-expense/:userId', chartController.getWeeklyIncomeExpenseChart);
 
+router.get('/user/:userId/monthly-totals', chartController.getMonthlyTotals);
+router.get('/user/:userId/next-month-prediction', chartController.getNextMonthPrediction);
+router.get('/user/:userId/budget-analysis', chartController.getBudgetAnalysis);
 module.exports = router;

@@ -143,6 +143,7 @@ model riwayat {
   nominal       Float?
   catatan       String?
   createdAt     DateTime        @default(now())
+   deleted       Boolean         @default(false)
   asalUang      asalUang?       @relation(fields: [asalUangId], references: [id])
   asalUangId    Int?
   kategori      kategori?       @relation(fields: [kategoriId], references: [id])

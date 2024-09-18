@@ -343,10 +343,173 @@ const getWeeklyIncomeExpenseChart = async (req, res) => {
   }
 };
 
+const getMonthlyTotals = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const selectedDate = new Date(req.query.date || new Date());
+    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+    const totals = await prisma.riwayat.groupBy({
+      by: ['tipe'],
+      where: {
+        tanggal: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        bulan: {
+          user: {
+            id: userId,
+          },
+        },
+      },
+      _sum: {
+        nominal: true,
+      },
+    });
+
+    const result = {
+      income: 0,
+      expense: 0,
+    };
+
+    totals.forEach((total) => {
+      if (total.tipe === 'Pemasukan') {
+        result.income = total._sum.nominal || 0;
+      } else if (total.tipe === 'Pengeluaran') {
+        result.expense = total._sum.nominal || 0;
+      }
+    });
+
+    res.json(new Response.Success(false, 'Monthly totals retrieved successfully', result));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(new Response.Error(true, 'Internal server error'));
+  }
+};
+
+const getNextMonthPrediction = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const selectedDate = new Date(req.query.date || new Date());
+    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+    // Get average income and expense for the last 3 months
+    const lastThreeMonths = await prisma.riwayat.groupBy({
+      by: ['tipe'],
+      where: {
+        tanggal: {
+          gte: new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() - 2, 1),
+          lte: endOfMonth,
+        },
+        bulan: {
+          user: {
+            id: userId,
+          },
+        },
+      },
+      _avg: {
+        nominal: true,
+      },
+    });
+
+    const result = {
+      income: 0,
+      expense: 0,
+    };
+
+    lastThreeMonths.forEach((avg) => {
+      if (avg.tipe === 'Pemasukan') {
+        result.income = avg._avg.nominal || 0;
+      } else if (avg.tipe === 'Pengeluaran') {
+        result.expense = avg._avg.nominal || 0;
+      }
+    });
+
+    res.json(new Response.Success(false, 'Next month prediction retrieved successfully', result));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(new Response.Error(true, 'Internal server error'));
+  }
+};
+
+const getBudgetAnalysis = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const selectedDate = new Date(req.query.date || new Date());
+    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+    const budgets = await prisma.budget.findMany({
+      where: {
+        userId: userId,
+        detailBudget: {
+          some: {
+            tanggalMulai: {
+              lte: endOfMonth,
+            },
+            tanggalSelesai: {
+              gte: startOfMonth,
+            },
+          },
+        },
+      },
+      include: {
+        kategori: true,
+        detailBudget: {
+          where: {
+            tanggalMulai: {
+              lte: endOfMonth,
+            },
+            tanggalSelesai: {
+              gte: startOfMonth,
+            },
+          },
+        },
+      },
+    });
+
+    const result = await Promise.all(budgets.map(async (budget) => {
+      const usedAmount = await prisma.riwayat.aggregate({
+        where: {
+          kategoriId: budget.kategoriId,
+          tanggal: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+          bulan: {
+            user: {
+              id: userId,
+            },
+          },
+        },
+        _sum: {
+          nominal: true,
+        },
+      });
+
+      return {
+        category: budget.kategori.namaKategori,
+        total: budget.jumlahBudget,
+        used: usedAmount._sum.nominal || 0,
+      };
+    }));
+
+    res.json(new Response.Success(false, 'Budget analysis retrieved successfully', result));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(new Response.Error(true, 'Internal server error'));
+  }
+};
+
 
 module.exports = {
   getWeeklyExpenseIncome,
   getRiwayatByUserIdAndTimeframe,
   getRincianByUserIdAndTimeframe,
   getWeeklyIncomeExpenseChart,
+  getMonthlyTotals,
+  getNextMonthPrediction,
+  getBudgetAnalysis,
 };
