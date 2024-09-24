@@ -25,6 +25,7 @@ const getWeeklyExpenseIncome = async (req, res) => {
             id: parseInt(userId),
           },
         },
+        deleted: false,
       },
       _sum: {
         nominal: true,
@@ -101,6 +102,7 @@ const getWeeklyRiwayat = async (userId, selectedDate) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
+      deleted: false,
     },
     include: {
       kategori: true,
@@ -145,6 +147,7 @@ const getMonthlyRiwayat = async (userId, selectedDate) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
+      deleted: false,
     },
     include: {
       kategori: true,
@@ -215,6 +218,7 @@ const getWeeklyRincian = async (userId, selectedDate) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
+      deleted: false,
     },
     include: {
       kategori: true,
@@ -259,6 +263,7 @@ const getMonthlyRincian = async (userId, selectedDate) => {
         gte: startDate.toISOString(),
         lte: endDate.toISOString(),
       },
+      deleted: false,
     },
     include: {
       kategori: true,
@@ -310,6 +315,7 @@ const getWeeklyIncomeExpenseChart = async (req, res) => {
             id: parseInt(userId),
           },
         },
+        deleted: false,
       },
       select: {
         tanggal: true,
@@ -362,6 +368,7 @@ const getMonthlyTotals = async (req, res) => {
             id: userId,
           },
         },
+        deleted: false,
       },
       _sum: {
         nominal: true,
@@ -408,6 +415,7 @@ const getNextMonthPrediction = async (req, res) => {
             id: userId,
           },
         },
+        deleted: false,
       },
       _avg: {
         nominal: true,
@@ -483,6 +491,7 @@ const getBudgetAnalysis = async (req, res) => {
               id: userId,
             },
           },
+          deleted: false,
         },
         _sum: {
           nominal: true,

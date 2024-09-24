@@ -19,39 +19,14 @@ model User {
   bulan      bulan[]
   kategori   kategori[]
   asalUang   asalUang[]
-  grupMember GrupMember[]
-  Grup       Grup[]
   budget     budget[]
 
   @@index([email]) // Index for faster email lookups
   @@index([username]) // Index for faster username lookups
 }
 
-model Grup {
-  id           Int          @id @default(autoincrement())
-  namaGrup     String?
-  grupCode     String?
-  userCreate   User?        @relation(fields: [userCreateId], references: [id])
-  userCreateId Int?
-  createdAt    DateTime     @default(now())
-  bulan        bulan[]
-  grupMember   GrupMember[]
-  kategori     kategori[]
-  asalUang     asalUang[]
-  budget       budget[]
-}
 
-model GrupMember {
-  id       Int      @id @default(autoincrement())
-  dateJoin DateTime @default(now())
-  user     User     @relation(fields: [userId], references: [id])
-  userId   Int
-  grup     Grup     @relation(fields: [grupId], references: [id])
-  grupId   Int
 
-  @@index([userId]) // Index for faster queries by userId
-  @@index([grupId]) // Index for faster queries by grupId
-}
 
 model budget {
   id             Int       @id @default(autoincrement())
@@ -63,8 +38,7 @@ model budget {
   kategoriId     Int?
   user           User?     @relation(fields: [userId], references: [id])
   userId         Int?
-  grup           Grup?     @relation(fields: [grupId], references: [id])
-  grupId         Int?
+  isBerulang     Boolean?
   detailBudget   detailBudget[]
 
   @@index([userId]) // Index for fast er queries by userId
@@ -93,8 +67,6 @@ model bulan {
   pengeluaran Float?
   total       Float?
   riwayat     riwayat[]
-  Grup        Grup?     @relation(fields: [grupId], references: [id])
-  grupId      Int?
   user        User?     @relation(fields: [userId], references: [id])
   userId      Int?
 
@@ -108,8 +80,6 @@ model asalUang {
   riwayat      riwayat[]
   user         User?     @relation(fields: [userId], references: [id])
   userId       Int?
-  Grup         Grup?     @relation(fields: [grupId], references: [id])
-  grupId       Int?
 
   @@index([userId]) // Index for faster queries by userId
 }
@@ -123,8 +93,6 @@ model kategori {
   budget       budget[]
   user         User?     @relation(fields: [userId], references: [id])
   userId       Int?
-  grup         Grup?     @relation(fields: [grupId], references: [id])
-  grupId       Int?
 
   @@index([userId]) // Index for faster queries by userId
 }

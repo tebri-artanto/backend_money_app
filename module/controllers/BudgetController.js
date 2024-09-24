@@ -11,11 +11,11 @@ const addBudget = async (req, res) => {
     const {
       kategoriId,
       userId,
-      grupId,
       jumlahBudget,
       frekuensi,
       tanggalMulai,
       tanggalSelesai,
+      isBerulang,
     } = req.body;
 
     const startDate = new Date(tanggalMulai);
@@ -25,7 +25,6 @@ const addBudget = async (req, res) => {
       where: {
         userId: parseInt(userId),
         kategoriId: parseInt(kategoriId),
-        grupId: parseInt(grupId),
         detailBudget: {
           some: {
             OR: [
@@ -63,8 +62,8 @@ const addBudget = async (req, res) => {
       jumlahBudget: parseFloat(jumlahBudget),
       kategoriId: parseInt(kategoriId),
       userId: parseInt(userId),
-      grupId: parseInt(grupId),
       frekuensi: frekuensi,
+      isBerulang: isBerulang,
       status: "Aktif",
     };
 
@@ -75,23 +74,42 @@ const addBudget = async (req, res) => {
     let currentDate = new Date(startDate);
     let iteration = 1;
 
-    while (!endDate || currentDate <= endDate) {
-      const nextDate = getNextDate(currentDate, frekuensi);
+    while (currentDate <= endDate) {
+      console.log("masuk while");
+      
+      let nextDate;
 
-      // Check if there are any riwayat with the same kategori within the budget date range
+      if (frekuensi === "Bulanan") {
+        if (isBerulang) {
+          nextDate = new Date(currentDate);
+          nextDate.setDate(nextDate.getDate() + 29);
+          console.log(nextDate);
+      console.log(endDate);
+  
+        } else {
+          nextDate = endDate;
+        }
+      } else {
+        // Mingguan
+        nextDate = new Date(currentDate);
+        nextDate.setDate(nextDate.getDate() + 6);
+       
+      }
+
       const riwayatPengeluaran = await prisma.riwayat.findMany({
         where: {
           tanggal: {
             gte: currentDate,
-            lt: nextDate,
+            lte: nextDate,
           },
           kategoriId: parseInt(kategoriId),
           tipe: "Pengeluaran",
+          deleted: false,
         },
       });
 
       const totalPengeluaran = riwayatPengeluaran.reduce((total, riwayat) => total + riwayat.nominal, 0);
-
+      
       const detailBudgetData = {
         budgetId: budget.id,
         sisaBudget: parseFloat(jumlahBudget) - totalPengeluaran,
@@ -102,13 +120,15 @@ const addBudget = async (req, res) => {
       };
 
       const detailBudget = await prisma.detailBudget.create({ data: detailBudgetData });
+      console.log(detailBudget);
 
-      // Update detailBudgetId in the related riwayat
+
       await prisma.riwayat.updateMany({
         where: {
           id: {
             in: riwayatPengeluaran.map((riwayat) => riwayat.id),
           },
+          deleted: false,
         },
         data: {
           detailBudgetId: detailBudget.id,
@@ -117,10 +137,22 @@ const addBudget = async (req, res) => {
 
       detailBudgets.push(detailBudget);
 
-      currentDate = nextDate;
-      iteration++;
+      currentDate = new Date(nextDate);
+      currentDate.setDate(currentDate.getDate() + 1);
 
-      if (!endDate && iteration > 1) break;
+      // Check if the next iteration will exceed the end date
+      // if (currentDate > endDate) {
+      //   // Adjust the tanggalSelesai of the last detail budget to match the end date
+      //   const lastDetailBudget = detailBudgets[detailBudgets.length - 1];
+      //   await prisma.detailBudget.update({
+      //     where: { id: lastDetailBudget.id },
+      //     data: { tanggalSelesai: endDate },
+      //   });
+      //   console.log(detailBudget);
+      //   console.log("masuk break");
+      // }
+
+      iteration++;
     }
 
     console.log("berhasil add budget");
@@ -132,28 +164,13 @@ const addBudget = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-function getNextDate(currentDate, frekuensi) {
-  const nextDate = new Date(currentDate);
-  switch (frekuensi) {
-    case "Harian":
-      nextDate.setDate(nextDate.getDate() + 1);
-      break;
-    case "Mingguan":
-      nextDate.setDate(nextDate.getDate() + 7);
-      break;
-    case "Bulanan":
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      break;
-    default:
-      throw new Error("Invalid frequency");
-  }
-  return nextDate;
-}const updateBudget = async (req, res) => {
+const updateBudget = async (req, res) => {
   try {
+    console.log("masuk update budget");
+    console.log(req.body);
     const { id } = req.params;
-    const { kategoriId, jumlahBudget, frekuensi, tanggalMulai, tanggalSelesai } = req.body;
+    const { kategoriId, jumlahBudget, frekuensi, tanggalMulai, tanggalSelesai, isBerulang } = req.body;
 
-    // Fetch the existing budget
     const existingBudget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
       include: { detailBudget: true },
@@ -164,32 +181,33 @@ function getNextDate(currentDate, frekuensi) {
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    // Check for overlapping date ranges
-    const overlappingBudgets = await prisma.budget.findMany({
+    const startDate = new Date(tanggalMulai);
+    const endDate = tanggalSelesai ? new Date(tanggalSelesai) : null;
+
+    const findOverlappingBudgets = await prisma.budget.findMany({
       where: {
         id: { not: parseInt(id) },
         userId: existingBudget.userId,
         kategoriId: parseInt(kategoriId),
-        grupId: existingBudget.grupId,
         detailBudget: {
           some: {
             OR: [
               {
                 AND: [
-                  { tanggalMulai: { lte: new Date(tanggalMulai) } },
-                  { tanggalSelesai: { gte: new Date(tanggalMulai) } },
+                  { tanggalMulai: { lte: startDate } },
+                  { tanggalSelesai: { gte: startDate } },
                 ],
               },
               {
                 AND: [
-                  { tanggalMulai: { lte: new Date(tanggalSelesai) } },
-                  { tanggalSelesai: { gte: new Date(tanggalSelesai) } },
+                  { tanggalMulai: { lte: endDate } },
+                  { tanggalSelesai: { gte: endDate } },
                 ],
               },
               {
                 AND: [
-                  { tanggalMulai: { gte: new Date(tanggalMulai) } },
-                  { tanggalSelesai: { lte: new Date(tanggalSelesai) } },
+                  { tanggalMulai: { gte: startDate } },
+                  { tanggalSelesai: { lte: endDate } },
                 ],
               },
             ],
@@ -198,42 +216,54 @@ function getNextDate(currentDate, frekuensi) {
       },
     });
 
-    if (overlappingBudgets.length > 0) {
-      response = new Response.Error(true, "Budget already exists for the given date range");
+    if (findOverlappingBudgets.length > 0) {
+      console.log("overlapping budget exists");
+      response = new Response.Error(true, "An overlapping budget already exists for the given date range and category");
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
-    // Update the main budget
     const updatedBudget = await prisma.budget.update({
       where: { id: parseInt(id) },
       data: {
         kategoriId: parseInt(kategoriId),
         jumlahBudget: parseFloat(jumlahBudget),
         frekuensi: frekuensi,
+        isBerulang: isBerulang,
       },
     });
 
-    // Delete the existing detail budgets
     await prisma.detailBudget.deleteMany({
       where: { budgetId: parseInt(id) },
     });
 
-    // Create new detail budgets based on the updated date range
-    let currentDate = new Date(tanggalMulai);
-    const endDate = tanggalSelesai ? new Date(tanggalSelesai) : null;
+    let currentDate = new Date(startDate);
     let iteration = 1;
 
-    while (!endDate || currentDate <= endDate) {
-      const nextDate = getNextDate(currentDate, frekuensi);
+    while (currentDate <= endDate) {
+      let nextDate;
+
+      if (frekuensi === "Bulanan") {
+        if (isBerulang) {
+          nextDate = new Date(currentDate);
+          nextDate.setDate(nextDate.getDate() + 29);
+        } else {
+          nextDate = endDate;
+        }
+      } else {
+        // Mingguan
+        nextDate = new Date(currentDate);
+        nextDate.setDate(nextDate.getDate() + 6);
+      }
 
       const riwayatPengeluaran = await prisma.riwayat.findMany({
         where: {
           tanggal: {
             gte: currentDate,
-            lt: nextDate,
+            lte: nextDate,
           },
           kategoriId: parseInt(kategoriId),
           tipe: "Pengeluaran",
+          deleted: false,
         },
       });
 
@@ -255,66 +285,32 @@ function getNextDate(currentDate, frekuensi) {
           id: {
             in: riwayatPengeluaran.map((riwayat) => riwayat.id),
           },
+          deleted: false,
         },
         data: {
           detailBudgetId: detailBudget.id,
         },
       });
 
-      currentDate = nextDate;
-      iteration++;
+      currentDate = new Date(nextDate);
+      currentDate.setDate(currentDate.getDate() + 1);
 
-      if (!endDate && iteration > 1) break;
+      // Check if the next iteration will exceed the end date
+      // if (currentDate > endDate) {
+      //   // Adjust the tanggalSelesai of the last detail budget to match the end date
+      //   const lastDetailBudget = await prisma.detailBudget.findFirst({
+      //     where: { budgetId: updatedBudget.id },
+      //     orderBy: { id: 'desc' },
+      //   });
+      //   await prisma.detailBudget.update({
+      //     where: { id: lastDetailBudget.id },
+      //     data: { tanggalSelesai: endDate },
+      //   });
+      // }
+
+      iteration++;
     }
 
-    // Update riwayat records that were previously associated with the budget
-    // Update riwayat records that were previously associated with the budget
-await prisma.riwayat.updateMany({
-  where: {
-    kategoriId: parseInt(kategoriId),
-    tanggal: {
-      gte: new Date(tanggalMulai),
-      lte: endDate || new Date(tanggalSelesai),
-    },
-    detailBudgetId: null,
-  },
-  data: {
-    detailBudgetId: await prisma.detailBudget.findFirst({
-      where: {
-        budgetId: updatedBudget.id,
-        tanggalMulai: { lte: new Date(tanggalMulai) },
-        tanggalSelesai: { gte: endDate || new Date(tanggalSelesai) },
-      },
-      select: { id: true },
-    }).then(detail => detail ? detail.id : undefined),
-  },
-});
-
-// Update riwayat records that were previously associated with other budgets
-await prisma.riwayat.updateMany({
-  where: {
-    kategoriId: parseInt(kategoriId),
-    tanggal: {
-      gte: new Date(tanggalMulai),
-      lte: endDate || new Date(tanggalSelesai),
-    },
-    detailBudgetId: {
-      not: null,
-    },
-  },
-  data: {
-    detailBudgetId: await prisma.detailBudget.findFirst({
-      where: {
-        budgetId: updatedBudget.id,
-        tanggalMulai: { lte: new Date(tanggalMulai) },
-        tanggalSelesai: { gte: endDate || new Date(tanggalSelesai) },
-      },
-      select: { id: true },
-    }).then(detail => detail ? detail.id : undefined),
-  },
-});
-
-    // Fetch the updated budget with its detail budgets
     const finalBudget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -361,6 +357,7 @@ const deleteBudget = async (req, res) => {
         detailBudgetId: {
           in: detailBudgetIds,
         },
+        deleted: false,
       },
       data: {
         detailBudgetId: null,
@@ -399,7 +396,6 @@ const getAllBudget = async (req, res) => {
       include: {
         kategori: true,
         user: true,
-        grup: true,
         detailBudget: true,
       },
     });
@@ -423,7 +419,6 @@ const getBudgetById = async (req, res) => {
       include: {
         kategori: true,
         user: true,
-        grup: true,
         detailBudget: true,
       },
     });

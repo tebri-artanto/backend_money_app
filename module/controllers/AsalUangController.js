@@ -15,7 +15,6 @@ const addAsalUang = async (req, res) => {
       data: {
         tipeAsalUang,
         userId: parseInt(userId),
-        // grupId: parseInt(grupId),
       },
     });
 

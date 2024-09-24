@@ -31,7 +31,6 @@ const upload = multer({
   storage: multer.memoryStorage({}),
 });
 
-
 const uploadNotaTest = async (req, res) => {
   try {
     const { originalname, buffer, mimetype } = req.file;
@@ -116,12 +115,14 @@ const uploadNota = async (originalname, buffer, mimetype) => {
     throw new Error("Internal server error");
   }
 };
+
 const addRiwayat = async (req, res) => {
   let response = null;
   try {
     console.log(req.body);
 
-    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId } = req.body;
+    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, userId } =
+      req.body;
     const { originalname, buffer, mimetype } = req.file || {};
 
     const findBulan = {
@@ -133,9 +134,9 @@ const addRiwayat = async (req, res) => {
     console.log(findBulan);
 
     let detailBudgetId = null;
-console.log(tipe);
-console.log(kategoriId);
-    // Only process budget for 'Pengeluaran'
+    console.log(tipe);
+    console.log(kategoriId);
+    
     if (tipe === "Pengeluaran") {
       const findBudgets = await prisma.budget.findMany({
         where: {
@@ -188,9 +189,16 @@ console.log(kategoriId);
     if (existingBulan) {
       const updatedBulan = await prisma.bulan.update({
         where: { id: existingBulan.id },
-        data: tipe === "Pemasukan" 
-          ? { pemasukan: { increment: parseFloat(nominal) }, total: { increment: parseFloat(nominal) } }
-          : { pengeluaran: { increment: parseFloat(nominal) }, total: { decrement: parseFloat(nominal) } },
+        data:
+          tipe === "Pemasukan"
+            ? {
+                pemasukan: { increment: parseFloat(nominal) },
+                total: { increment: parseFloat(nominal) },
+              }
+            : {
+                pengeluaran: { increment: parseFloat(nominal) },
+                total: { decrement: parseFloat(nominal) },
+              },
       });
       bulanId = updatedBulan.id;
     } else {
@@ -201,7 +209,8 @@ console.log(kategoriId);
           tahun: findBulan.tahun.toString(),
           pemasukan: tipe === "Pemasukan" ? parseFloat(nominal) : 0,
           pengeluaran: tipe === "Pengeluaran" ? parseFloat(nominal) : 0,
-          total: tipe === "Pemasukan" ? parseFloat(nominal) : -parseFloat(nominal),
+          total:
+            tipe === "Pemasukan" ? parseFloat(nominal) : -parseFloat(nominal),
         },
       });
       bulanId = newBulan.id;
@@ -212,7 +221,9 @@ console.log(kategoriId);
 
     let notaId = null;
     if (req.file) {
-      const imageName = `${generateRandomName()}_${Date.now()}.${originalname.split(".").pop()}`;
+      const imageName = `${generateRandomName()}_${Date.now()}.${originalname
+        .split(".")
+        .pop()}`;
       const params = {
         Bucket: bucketName,
         Key: imageName,
@@ -242,7 +253,11 @@ console.log(kategoriId);
       },
     });
 
-    response = new Response.Success(false, "Riwayat added successfully", riwayat);
+    response = new Response.Success(
+      false,
+      "Riwayat added successfully",
+      riwayat
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     console.error(error);
@@ -252,8 +267,12 @@ console.log(kategoriId);
 };
 
 function generateRandomName() {
-  const characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  return Array(10).fill().map(() => characters.charAt(Math.floor(Math.random() * characters.length))).join('');
+  const characters =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  return Array(10)
+    .fill()
+    .map(() => characters.charAt(Math.floor(Math.random() * characters.length)))
+    .join("");
 }
 
 const updateRiwayat = async (req, res) => {
@@ -261,7 +280,8 @@ const updateRiwayat = async (req, res) => {
   try {
     const id = req.params.id;
     console.log(id);
-    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, bulanId } = req.body;
+    const { tanggal, tipe, nominal, catatan, asalUangId, kategoriId, bulanId } =
+      req.body;
     const { originalname, buffer, mimetype } = req.file || {};
 
     console.log(req.file);
@@ -293,7 +313,9 @@ const updateRiwayat = async (req, res) => {
         await prisma.nota.delete({ where: { id: existingRiwayat.notaId } });
       }
 
-      const imageName = `${generateRandomName()}_${Date.now()}.${originalname.split(".").pop()}`;
+      const imageName = `${generateRandomName()}_${Date.now()}.${originalname
+        .split(".")
+        .pop()}`;
       const params = {
         Bucket: bucketName,
         Key: imageName,
@@ -316,23 +338,30 @@ const updateRiwayat = async (req, res) => {
     const existingBulan = await prisma.bulan.findUnique({
       where: { id: parseInt(bulanId) },
     });
-  
+
     if (existingBulan) {
       const updatedBulan = await prisma.bulan.update({
         where: { id: parseInt(bulanId) },
-        data: tipe === "Pemasukan"
-          ? {
-              pemasukan: { increment: parseFloat(nominal) - existingRiwayat.nominal },
-              total: { increment: parseFloat(nominal) - existingRiwayat.nominal },
-            }
-          : {
-              pengeluaran: { increment: parseFloat(nominal) - existingRiwayat.nominal },
-              total: { decrement: parseFloat(nominal) - existingRiwayat.nominal },
-            },
+        data:
+          tipe === "Pemasukan"
+            ? {
+                pemasukan: {
+                  increment: parseFloat(nominal) - existingRiwayat.nominal,
+                },
+                total: {
+                  increment: parseFloat(nominal) - existingRiwayat.nominal,
+                },
+              }
+            : {
+                pengeluaran: {
+                  increment: parseFloat(nominal) - existingRiwayat.nominal,
+                },
+                total: {
+                  decrement: parseFloat(nominal) - existingRiwayat.nominal,
+                },
+              },
       });
     }
-  
-
 
     // Remove the nominal from the old detailBudget if it exists
     if (existingRiwayat.detailBudget) {
@@ -392,7 +421,11 @@ const updateRiwayat = async (req, res) => {
       },
     });
 
-    response = new Response.Success(false, "Riwayat updated successfully", updatedRiwayat);
+    response = new Response.Success(
+      false,
+      "Riwayat updated successfully",
+      updatedRiwayat
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     console.error(error);
@@ -722,21 +755,28 @@ const getRiwayatSummaryByBulanId = async (req, res) => {
   }
 };
 
-
 const getRiwayatByUserIdWeekly = async (req, res) => {
   let response = null;
   try {
     const userId = req.params.id;
     const currentDate = new Date();
     const currentDay = currentDate.getDay();
-    const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
-    const mondayDate = new Date(currentDate);
-    mondayDate.setDate(currentDate.getDate() - daysToMonday);
-    mondayDate.setHours(0, 0, 0, 0);
 
-    const sundayDate = new Date(mondayDate);
-    sundayDate.setDate(mondayDate.getDate() + 6);
-    sundayDate.setHours(23, 59, 59, 999);
+    let startDate = new Date(currentDate);
+    let endDate = new Date(currentDate);
+
+    if (currentDay === 0) {
+      // If today is Sunday, set the start date to today and end date to next Saturday
+      endDate.setDate(startDate.getDate() + 6);
+    } else {
+      // If today is not Sunday, set the start date to the previous Sunday and end date to the upcoming Saturday
+      const daysToPreviousSunday = currentDay;
+      startDate.setDate(currentDate.getDate() - daysToPreviousSunday);
+      endDate.setDate(startDate.getDate() + 6);
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
 
     const riwayat = await prisma.riwayat.findMany({
       where: {
@@ -744,8 +784,8 @@ const getRiwayatByUserIdWeekly = async (req, res) => {
           userId: parseInt(userId),
         },
         tanggal: {
-          gte: mondayDate.toISOString(),
-          lte: sundayDate.toISOString(),
+          gte: startDate.toISOString(),
+          lte: endDate.toISOString(),
         },
         deleted: false,
       },
@@ -768,7 +808,6 @@ const getRiwayatByUserIdWeekly = async (req, res) => {
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 const getRiwayatByUserIdWeeklyByKategori = async (req, res) => {
   let response = null;
   try {
@@ -841,7 +880,7 @@ const getLast10RiwayatByUserId = async (req, res) => {
         deleted: false,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
       take: 10,
       include: {
@@ -852,7 +891,7 @@ const getLast10RiwayatByUserId = async (req, res) => {
 
     response = new Response.Success(
       false,
-      'Last 10 riwayat retrieved successfully',
+      "Last 10 riwayat retrieved successfully",
       last10Riwayat
     );
     res.status(httpStatus.OK).json(response);
@@ -868,7 +907,7 @@ module.exports = {
   addRiwayat,
   updateRiwayat,
   deleteRiwayat,
-  
+
   uploadNotaTest,
 
   getRiwayatById,
