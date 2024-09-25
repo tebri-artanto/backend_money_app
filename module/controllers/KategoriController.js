@@ -53,27 +53,43 @@ const updateKategori = async (req, res) => {
 const deleteKategori = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`Deleting kategori with id: ${id}`);
+
+    // Check if the kategori is used in any riwayat or budget
+    const usedInRiwayat = await prisma.riwayat.findFirst({
+      where: { kategoriId: parseInt(id) },
+    });
+    console.log(`Used in riwayat: ${usedInRiwayat ? 'Yes' : 'No'}`);
+
+    const usedInBudget = await prisma.budget.findFirst({
+      where: { kategoriId: parseInt(id) },
+    });
+    console.log(`Used in budget: ${usedInBudget ? 'Yes' : 'No'}`);
+
+    if (usedInRiwayat || usedInBudget) {
+      response = new Response.Error(true, 'Tidak dapat menghapus kategori. Kategori sedang digunakan dalam riwayat atau anggaran.');
+      console.log('Kategori is in use, cannot delete.');
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
+
     const kategori = await prisma.kategori.delete({
       where: { id: parseInt(id) },
     });
+    console.log(`Kategori deleted: ${kategori ? 'Yes' : 'No'}`);
 
     if (!kategori) {
       response = new Response.Error(true, 'Kategori not found');
+      console.log('Kategori not found.');
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
     response = new Response.Success(false, 'Kategori deleted successfully', kategori);
+    console.log('Kategori deleted successfully.');
     res.status(httpStatus.OK).json(response);
   } catch (error) {
-    if (error.code === 'P2003') {
-      // This is the error code for a foreign key constraint violation in Prisma
-      response = new Response.Error(true, 'Cannot delete kategori. It is being used by other tables.');
-      res.status(httpStatus.BAD_REQUEST).json(response);
-    } else {
-      response = new Response.Error(true, error.message);
-      console.error(error);
-      res.status(httpStatus.BAD_REQUEST).json(response);
-    }
+    response = new Response.Error(true, error.message);
+    console.error('Error deleting kategori:', error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
 
