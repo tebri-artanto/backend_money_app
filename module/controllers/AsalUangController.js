@@ -1,15 +1,26 @@
-const Response = require('../model/Response')
-const httpStatus = require('http-status')
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const AsalUang = require('../model/asalUang')
-const User = require('../model/user')
-// const validateAsalUang = require('../utils/AsalUangValidator')
-let response = null
+const httpStatus = require('http-status');
+const Response = require('../model/Response');
+
+let response = null;
 
 const addAsalUang = async (req, res) => {
   try {
-    const { tipeAsalUang, userId, } = req.body;
+    const { tipeAsalUang, userId } = req.body;
+
+    // Check if the asal uang type already exists for the user
+    const existingAsalUang = await prisma.asalUang.findFirst({
+      where: {
+        tipeAsalUang,
+        userId: parseInt(userId),
+      },
+    });
+
+    if (existingAsalUang) {
+      response = new Response.Error(true, 'Tipe asal uang sudah digunakan');
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
 
     const asalUang = await prisma.asalUang.create({
       data: {
@@ -18,29 +29,64 @@ const addAsalUang = async (req, res) => {
       },
     });
 
-    response = new Response.Success(false, 'AsalUang added successfully', asalUang);
+    response = new Response.Success(false, 'Asal uang added successfully', asalUang);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
+    console.error(error);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
-
 
 const updateAsalUang = async (req, res) => {
   try {
     const { tipeAsalUang } = req.body;
     const { id } = req.params;
 
-    const asalUang = await prisma.asalUang.update({
-      where: { id: Number(id) },
+    // Check if the asal uang exists
+    const asalUang = await prisma.asalUang.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!asalUang) {
+      response = new Response.Error(true, 'Asal uang not found');
+      return res.status(httpStatus.NOT_FOUND).json(response);
+    }
+
+    // Check if the new asal uang type already exists for the user
+    const existingAsalUang = await prisma.asalUang.findFirst({
+      where: {
+        tipeAsalUang,
+        userId: asalUang.userId,
+        NOT: { id: parseInt(id) },
+      },
+    });
+
+    if (existingAsalUang) {
+      response = new Response.Error(true, 'Tipe asal uang sudah digunakan');
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
+
+    // Check if the asal uang is used in any riwayat
+    const usedInRiwayat = await prisma.riwayat.findFirst({
+      where: { asalUangId: parseInt(id) },
+    });
+
+    if (usedInRiwayat) {
+      response = new Response.Error(true, 'Tidak dapat mengubah asal uang. Asal uang sedang digunakan dalam riwayat.');
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
+
+    const updatedAsalUang = await prisma.asalUang.update({
+      where: { id: parseInt(id) },
       data: { tipeAsalUang },
     });
 
-    response = new Response.Success(false, 'AsalUang updated successfully', asalUang);
+    response = new Response.Success(false, 'Asal uang updated successfully', updatedAsalUang);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
+    console.error(error);
     res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
@@ -49,29 +95,40 @@ const deleteAsalUang = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const asalUang = await prisma.asalUang.delete({
-      where: { id: Number(id) },
+    // Check if the asal uang is used in any riwayat
+    const usedInRiwayat = await prisma.riwayat.findFirst({
+      where: { asalUangId: parseInt(id) },
     });
 
-    response = new Response.Success(false, 'AsalUang deleted successfully', asalUang);
+    if (usedInRiwayat) {
+      response = new Response.Error(true, 'Tidak dapat menghapus asal uang. Asal uang sedang digunakan dalam riwayat.');
+      return res.status(httpStatus.BAD_REQUEST).json(response);
+    }
+
+    const asalUang = await prisma.asalUang.delete({
+      where: { id: parseInt(id) },
+    });
+
+    response = new Response.Success(false, 'Asal uang deleted successfully', asalUang);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
+    console.error(error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(response);
   }
 };
 
 const getAllAsalUang = async (req, res) => {
   try {
     const asalUang = await prisma.asalUang.findMany();
-    response = new Response.Success(false, 'AsalUang retrieved successfully', asalUang)
-    res.status(httpStatus.OK).json(response)
+    response = new Response.Success(false, 'Asal uang retrieved successfully', asalUang);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message)
-    console.error(error)
-    res.status(httpStatus.BAD_REQUEST).json(response)
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
-}
+};
 
 const getAsalUangById = async (req, res) => {
   try {
@@ -80,14 +137,15 @@ const getAsalUangById = async (req, res) => {
     const asalUang = await prisma.asalUang.findUnique({
       where: { id: parseInt(id) },
     });
-    response = new Response.Success(false, 'AsalUang retrieved successfully', asalUang)
-    res.status(httpStatus.OK).json(response)
+
+    response = new Response.Success(false, 'Asal uang retrieved successfully', asalUang);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
-    response = new Response.Error(true, error.message)
-    console.error(error)
-    res.status(httpStatus.BAD_REQUEST).json(response)
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
-}
+};
 
 const getAsalUangByUserId = async (req, res) => {
   const userId = parseInt(req.params.id);
@@ -96,15 +154,15 @@ const getAsalUangByUserId = async (req, res) => {
     const asalUang = await prisma.asalUang.findMany({
       where: { userId },
     });
-    response = new Response.Success(false, 'AsalUang retrieved successfully', asalUang)
-    res.status(httpStatus.OK).json(response)
-  } catch (error) {
-    response = new Response.Error(true, error.message)
-    console.error(error)
-    res.status(httpStatus.BAD_REQUEST).json(response)
-  }
-}
 
+    response = new Response.Success(false, 'Asal uang retrieved successfully', asalUang);
+    res.status(httpStatus.OK).json(response);
+  } catch (error) {
+    response = new Response.Error(true, error.message);
+    console.error(error);
+    res.status(httpStatus.BAD_REQUEST).json(response);
+  }
+};
 
 module.exports = {
   addAsalUang,
@@ -112,5 +170,5 @@ module.exports = {
   deleteAsalUang,
   getAllAsalUang,
   getAsalUangById,
-  getAsalUangByUserId
-}
+  getAsalUangByUserId,
+};

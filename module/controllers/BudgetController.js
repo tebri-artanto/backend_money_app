@@ -295,19 +295,7 @@ const updateBudget = async (req, res) => {
       currentDate = new Date(nextDate);
       currentDate.setDate(currentDate.getDate() + 1);
 
-      // Check if the next iteration will exceed the end date
-      // if (currentDate > endDate) {
-      //   // Adjust the tanggalSelesai of the last detail budget to match the end date
-      //   const lastDetailBudget = await prisma.detailBudget.findFirst({
-      //     where: { budgetId: updatedBudget.id },
-      //     orderBy: { id: 'desc' },
-      //   });
-      //   await prisma.detailBudget.update({
-      //     where: { id: lastDetailBudget.id },
-      //     data: { tanggalSelesai: endDate },
-      //   });
-      // }
-
+    
       iteration++;
     }
 

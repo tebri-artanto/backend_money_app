@@ -18,7 +18,7 @@ const signUp = async (req, res) => {
     });
 
     if (existingUser) {
-      response = new Response.Error(true, "Email already in use");
+      response = new Response.Error(true, "Email sudah digunakan");
       res.status(httpStatus.CONFLICT).json(response);
       return;
     }
@@ -28,7 +28,7 @@ const signUp = async (req, res) => {
     });
 
     if (existingUsername) {
-      response = new Response.Error(true, "Username already taken");
+      response = new Response.Error(true, "Username sudah digunakan");
       res.status(httpStatus.CONFLICT).json(response);
       return;
     }
@@ -83,7 +83,7 @@ const signUp = async (req, res) => {
       return newUser;
     });
 
-    response = new Response.Success(false, "Signup Success", user);
+    response = new Response.Success(false, "Pendaftaran berhasil", user);
     res.status(httpStatus.CREATED).json(response);
   } catch (error) {
     console.error("Signup error:", error);
@@ -94,7 +94,7 @@ const signUp = async (req, res) => {
 
 const logIn = async (req, res) => {
   let response = null;
-  const signInErrorMessage = "Invalid username or password";
+  const signInErrorMessage = "Username atau password salah";
   try {
     const request = await logInValidator.validateAsync(req.body);
 
@@ -130,17 +130,17 @@ const logIn = async (req, res) => {
         console.log("Sending notification to:", user.fcmToken);
         const message = {
           notification: {
-            title: 'New Login',
-            body: 'You have successfully logged in.',
+            title: 'Login Baru',
+            body: 'Anda berhasil login.',
           },
           token: user.fcmToken,
         };
 
         try {
           await admin.messaging().send(message);
-          console.log('Successfully sent login notification');
+          console.log('Berhasil mengirim notifikasi login');
         } catch (error) {
-          console.error('Error sending login notification:', error);
+          console.error('Error mengirim notifikasi login:', error);
         }
       }
     } else {
@@ -148,7 +148,7 @@ const logIn = async (req, res) => {
     }
 
     const data = { token: createJwtToken, user };
-    response = new Response.Success(false, "Login Success", data);
+    response = new Response.Success(false, "Login berhasil", data);
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -156,14 +156,13 @@ const logIn = async (req, res) => {
   }
 };
 
-
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-      return res.status(401).json({ error: "Unauthorized: No token provided" });
+      return res.status(401).json({ error: "Tidak ada token yang disediakan" });
     }
 
     const decoded = jwt.verify(token, process.env.KEY);
@@ -174,17 +173,17 @@ const authenticateToken = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(403).json({ error: "Forbidden: User not found or inactive" });
+      return res.status(403).json({ error: "Pengguna tidak ditemukan atau tidak aktif" });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error('Error in token authentication:', error);
+    console.error('Error dalam otentikasi token:', error);
     if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(403).json({ error: "Forbidden: Invalid token" });
+      return res.status(403).json({ error: "Token tidak valid" });
     }
-    return res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ error: "Kesalahan Server Internal" });
   }
 };
 
@@ -203,15 +202,16 @@ const getUserProfile = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "Pengguna tidak ditemukan" });
     }
 
-    res.json(new Response.Success(false, "Profile retrieved successfully", user));
+    res.json(new Response.Success(false, "Profil berhasil diambil", user));
   } catch (error) {
-    console.error("Error fetching user profile:", error);
-    res.status(500).json(new Response.Error(true, "Internal Server Error"));
+    console.error("Error mengambil profil pengguna:", error);
+    res.status(500).json(new Response.Error(true, "Kesalahan Server Internal"));
   }
 };
+
 const logout = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -221,11 +221,10 @@ const logout = async (req, res) => {
       data: { fcmToken: null },
     });
 
-
-    res.json(new Response.Success(false, "Logged out successfully", null));
+    res.json(new Response.Success(false, "Berhasil logout", null));
   } catch (error) {
-    console.error("Error during logout:", error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Internal Server Error"));
+    console.error("Error saat logout:", error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Kesalahan Server Internal"));
   }
 };
 
@@ -236,21 +235,21 @@ const editProfile = async (req, res) => {
 
     // Validate input
     if (!name && !username && !email) {
-      return res.status(httpStatus.BAD_REQUEST).json(new Response.Error(true, "At least one field (name, username, or email) must be provided"));
+      return res.status(httpStatus.BAD_REQUEST).json(new Response.Error(true, "Setidaknya satu (nama, username, atau email) harus diisi"));
     }
 
     // Check if username or email already exists
     if (username) {
       const existingUser = await prisma.user.findUnique({ where: { username } });
       if (existingUser && existingUser.id !== userId) {
-        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Username already taken"));
+        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Username sudah digunakan"));
       }
     }
 
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
       if (existingUser && existingUser.id !== userId) {
-        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Email already in use"));
+        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Email sudah digunakan"));
       }
     }
     const updatedUser = await prisma.user.update({
@@ -268,40 +267,41 @@ const editProfile = async (req, res) => {
       }
     });
 
-    res.json(new Response.Success(false, "Profile updated successfully", updatedUser));
+    res.json(new Response.Success(false, "Profil berhasil diperbarui", updatedUser));
   } catch (error) {
-    console.error("Error updating user profile:", error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Internal Server Error"));
+    console.error("Error memperbarui profil pengguna:", error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Kesalahan Server Internal"));
   }
 };
-  const changePassword = async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const { currentPassword, newPassword } = req.body;
-  
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-  
-      if (!user) {
-        return res.status(404).json(new Response.Error(true, "User not found"));
-      }
-  
-      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
-      if (!isValidPassword) {
-        return res.status(400).json(new Response.Error(true, "Current password is incorrect"));
-      }
-  
-      const hashedNewPassword = await bcrypt.hash(newPassword);
-  
-      await prisma.user.update({
-        where: { id: userId },
-        data: { password: hashedNewPassword },
-      });
-  
-      res.json(new Response.Success(false, "Password changed successfully"));
-    } catch (error) {
-      console.error("Error changing password:", error);
-      res.status(500).json(new Response.Error(true, "Internal Server Error"));
+
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      return res.status(404).json(new Response.Error(true, "Pengguna tidak ditemukan"));
     }
-  };
+
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(400).json(new Response.Error(true, "Password saat ini salah"));
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    res.status(httpStatus.OK).json(new Response.Success(false, "Kata sandi berhasil diubah"));
+  } catch (error) {
+    console.error("Error mengubah kata sandi:", error);
+    res.status(500).json(new Response.Error(true, "Kesalahan Server Internal"));
+  }
+};
 
 module.exports = { signUp, logIn, getUserProfile, authenticateToken, logout, editProfile, changePassword };
