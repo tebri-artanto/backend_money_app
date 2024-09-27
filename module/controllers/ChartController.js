@@ -432,7 +432,7 @@ const getNextMonthPrediction = async (req, res) => {
         result.income = avg._avg.nominal || 0;
       } else if (avg.tipe === 'Pengeluaran') {
         result.expense = avg._avg.nominal || 0;
-      }
+      } 
     });
 
     res.json(new Response.Success(false, 'Next month prediction retrieved successfully', result));
@@ -512,6 +512,162 @@ const getBudgetAnalysis = async (req, res) => {
   }
 };
 
+const analyzeBudgetUsage = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const selectedDate = new Date(req.query.date || new Date());
+    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+    // Get budgets and actual expenses for each category
+    const budgetsWithExpenses = await prisma.budget.findMany({
+      where: {
+        userId: userId,
+        detailBudget: {
+          some: {
+            tanggalMulai: { lte: endOfMonth },
+            tanggalSelesai: { gte: startOfMonth },
+          },
+        },
+      },
+      include: {
+        kategori: true,
+        detailBudget: {
+          where: {
+            tanggalMulai: { lte: endOfMonth },
+            tanggalSelesai: { gte: startOfMonth },
+          },
+          include: {
+            _count: {
+              select: { riwayat: true },
+            },
+          },
+        },
+      },
+    });
+    
+    // Calculate average expense for each category
+    const categoryExpenses = await prisma.riwayat.groupBy({
+      by: ['kategoriId'],
+      where: {
+        bulan: {
+          user: { id: userId },
+        },
+        tipe: 'Pengeluaran',
+        deleted: false,
+      },
+      _avg: {
+        nominal: true,
+      },
+    });
+    
+    const analysisResults = await Promise.all(
+      budgetsWithExpenses.map(async (budget) => {
+        const actualExpense = await prisma.riwayat.aggregate({
+          where: {
+            kategoriId: budget.kategoriId,
+            tanggal: {
+              gte: startOfMonth,
+              lte: endOfMonth,
+            },
+            bulan: {
+              user: { id: userId },
+            },
+            tipe: 'Pengeluaran',
+            deleted: false,
+          },
+          _sum: { nominal: true },
+        });
+
+        const budgetAmount = budget.jumlahBudget || 0;
+        const expenseAmount = actualExpense._sum.nominal || 0;
+        const usagePercentage = (expenseAmount / budgetAmount) * 100;
+        const transactionCount = budget.detailBudget.reduce(
+          (total, detail) => total + (detail._count?.riwayat || 0),
+          0
+        );
+        
+        const avgExpense = categoryExpenses.find(
+          (expense) => expense.kategoriId === budget.kategoriId
+        )?._avg?.nominal || 0;
+
+        let status, recommendation;
+        if (usagePercentage <= 80) {
+          status = 'Baik';
+          recommendation = 'Anda berhasil mengelola pengeluaran dengan baik. Pertahankan kebiasaan ini.';
+        } else if (usagePercentage <= 100) {
+          status = 'Waspada';
+          recommendation = 'Pengeluaran Anda mendekati batas anggaran. Perhatikan pengeluaran Anda dengan lebih cermat.';
+        } else {
+          status = 'Melebihi Anggaran';
+          recommendation = 'Pengeluaran Anda melebihi anggaran. Coba kurangi pengeluaran non-esensial dan evaluasi kembali anggaran Anda.';
+        }
+
+        return {
+          kategori: budget.kategori.namaKategori,
+          anggaran: budgetAmount,
+          pengeluaranAktual: expenseAmount,
+          persentasePenggunaan: usagePercentage.toFixed(2),
+          jumlahTransaksi: transactionCount,
+          rataRataPengeluaran: avgExpense,
+          status,
+          rekomendasi: recommendation,
+        };
+      })
+    );
+
+    // Generate overall recommendation
+    const overallRecommendation = generateOverallRecommendation(analysisResults);
+
+    res.json(
+      new Response.Success(false, 'Analisis anggaran berhasil', {
+        analysisResults,
+        overallRecommendation,
+      })
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(new Response.Error(true, 'Internal server error'));
+  }
+};
+
+const generateOverallRecommendation = (analysisResults) => {
+  const overBudgetCategories = analysisResults.filter((result) => parseFloat(result.persentasePenggunaan) > 100);
+  const underBudgetCategories = analysisResults.filter((result) => parseFloat(result.persentasePenggunaan) < 80);
+  
+  let recommendation = 'Berdasarkan analisis pengeluaran bulan ini:\n\n';
+
+  analysisResults.forEach((result) => {
+    recommendation += `- ${result.kategori}: `;
+    if (result.pengeluaranAktual > result.rataRataPengeluaran) {
+      recommendation += `Pengeluaran bulan ini (${formatRupiah(result.pengeluaranAktual)}) lebih tinggi dari rata-rata (${formatRupiah(result.rataRataPengeluaran)}). Pertimbangkan untuk mengurangi pengeluaran di kategori ini.\n`;
+    } else {
+      recommendation += `Pengeluaran bulan ini (${formatRupiah(result.pengeluaranAktual)}) lebih rendah dari atau sama dengan rata-rata (${formatRupiah(result.rataRataPengeluaran)}). Pertahankan pengeluaran Anda di kategori ini.\n`;
+    }
+  });
+
+  if (overBudgetCategories.length > 0) {
+    recommendation +=
+      '\nKategori yang melebihi anggaran: ' +
+      overBudgetCategories.map((c) => c.kategori).join(', ') +
+      '. Pertimbangkan untuk mengevaluasi dan menyesuaikan anggaran atau mengurangi pengeluaran di kategori ini.\n';
+  }
+
+  if (underBudgetCategories.length > 0) {
+    recommendation +=
+      '\nKategori dengan penggunaan di bawah 80%: ' +
+      underBudgetCategories.map((c) => c.kategori).join(', ') +
+      '. Anda bisa mempertimbangkan untuk mengalokasikan kelebihan anggaran ini ke kategori lain atau menabung.\n';
+  }
+
+  recommendation += '\nTerus pantau pengeluaran Anda dan sesuaikan anggaran sesuai kebutuhan untuk mencapai tujuan keuangan Anda.';
+
+  return recommendation;
+};
+
+const formatRupiah = (number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(number);
+};
 
 module.exports = {
   getWeeklyExpenseIncome,
@@ -521,4 +677,5 @@ module.exports = {
   getMonthlyTotals,
   getNextMonthPrediction,
   getBudgetAnalysis,
+  analyzeBudgetUsage,
 };

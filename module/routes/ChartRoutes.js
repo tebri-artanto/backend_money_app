@@ -13,4 +13,5 @@ router.get('/weekly-income-expense/:userId', chartController.getWeeklyIncomeExpe
 router.get('/user/:userId/monthly-totals', chartController.getMonthlyTotals);
 router.get('/user/:userId/next-month-prediction', chartController.getNextMonthPrediction);
 router.get('/user/:userId/budget-analysis', chartController.getBudgetAnalysis);
+router.get('/analyze-budget/:userId', chartController.analyzeBudgetUsage);
 module.exports = router;
