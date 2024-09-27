@@ -1,29 +1,19 @@
 {
   "name": "backend_money_app",
-  "module": "app.js",
+  "version": "1.0.0",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node app.js",
     "dev": "nodemon app.js"
   },
-  "devDependencies": {
-    "@prisma/client": "^5.16.0",
-    "@types/bun": "latest",
-    "i": "^0.3.7",
-    "npm": "^10.8.1",
-    "prisma": "^5.16.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
   "dependencies": {
-    "lru-cache": "^7.14.1",
     "@aws-sdk/client-s3": "^3.569.0",
     "@aws-sdk/s3-request-presigner": "^3.569.0",
+    "@prisma/client": "^5.16.0",
     "@tensorflow/tfjs": "^4.20.0",
     "axios": "^1.6.8",
     "bcrypt": "^5.1.1",
-    "body-parse": "^0.1.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dateformat": "^5.0.3",
@@ -35,14 +25,19 @@
     "joi": "^17.13.1",
     "jsonwebtoken": "^9.0.2",
     "libsvm-js": "^0.2.1",
+    "lru-cache": "^7.14.1",
     "mongodb": "^6.6.1",
     "mongoose": "^8.3.4",
     "multer": "^1.4.5-lts.1",
-    "nodemon": "^3.1.0",
-    "promisify": "^0.0.3",
     "python-shell": "^5.0.0",
-    "sharp": "^0.33.3",
-    "stream": "^0.0.2",
-    "util": "^0.12.5"
+    "sharp": "^0.33.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "prisma": "^5.16.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
