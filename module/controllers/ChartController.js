@@ -382,9 +382,9 @@ const getMonthlyTotals = async (req, res) => {
 
     totals.forEach((total) => {
       if (total.tipe === 'Pemasukan') {
-        result.income = total._sum.nominal || 0;
+        result.income = parseFloat(total._sum.nominal) || 0;
       } else if (total.tipe === 'Pengeluaran') {
-        result.expense = total._sum.nominal || 0;
+        result.expense = parseFloat(total._sum.nominal) || 0;
       }
     });
 
@@ -429,10 +429,10 @@ const getNextMonthPrediction = async (req, res) => {
 
     lastThreeMonths.forEach((avg) => {
       if (avg.tipe === 'Pemasukan') {
-        result.income = avg._avg.nominal || 0;
+        result.income = parseFloat(avg._avg.nominal) || 0;
       } else if (avg.tipe === 'Pengeluaran') {
-        result.expense = avg._avg.nominal || 0;
-      } 
+        result.expense = parseFloat(avg._avg.nominal) || 0;
+      }
     });
 
     res.json(new Response.Success(false, 'Next month prediction retrieved successfully', result));
