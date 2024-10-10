@@ -148,7 +148,7 @@ const getAsalUangById = async (req, res) => {
 };
 
 const getAsalUangByUserId = async (req, res) => {
-  const userId = parseInt(req.params.id);
+  const userId = req.user.id;
 
   try {
     const asalUang = await prisma.asalUang.findMany({

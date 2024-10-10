@@ -1,34 +1,41 @@
 const jwt = require("jsonwebtoken");
 const httpStatus = require("http-status");
-const User = require("../model/user");
+
 const Response = require("../model/Response");
 const clearToken = require("../utils/clearToken");
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 const requireAuth = async (req, res, next) => {
-  const token = req.headers.authorization;
-  const response = new Response.Error(true, "Unauthorized");
-
-  if (!token) {
-    res.status(httpStatus.UNAUTHORIZED).json(response);
-    return;
-  }
-
   try {
-    const myToken = clearToken(token);
-    const decodedToken = jwt.verify(myToken, process.env.KEY);
-    const userId = decodedToken.id;
-    const user = await User.findById(userId);
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
 
-    if (!user) {
-      res.status(httpStatus.UNAUTHORIZED).json(response);
-      return;
+    if (!token) {
+      return res.status(401).json({ error: "Tidak ada token yang disediakan" });
     }
 
-    req.userId = userId;
+    const decoded = jwt.verify(token, process.env.KEY);
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, username: true },
+    });
+
+    if (!user) {
+      return res
+        .status(403)
+        .json({ error: "Pengguna tidak ditemukan atau tidak aktif" });
+    }
+
     req.user = user;
     next();
   } catch (error) {
-    res.status(httpStatus.UNAUTHORIZED).json(response);
+    console.error("Error dalam otentikasi token:", error);
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(403).json({ error: "Token tidak valid" });
+    }
+    return res.status(500).json({ error: "Kesalahan Server Internal" });
   }
 };
 

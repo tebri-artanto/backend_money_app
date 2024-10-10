@@ -3,7 +3,7 @@ const router = new express.Router();
 const kategoriController = require("../controllers/KategoriController");
 const auth = require("../middleware/requireAuth");
 
-// router.use(auth);
+router.use(auth);
 router.post("/", kategoriController.addKategori);
 router.get("/", kategoriController.getAllKategori);
 router.get("/:id", kategoriController.getKategoriById);

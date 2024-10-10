@@ -136,7 +136,7 @@ const addRiwayat = async (req, res) => {
     let detailBudgetId = null;
     console.log(tipe);
     console.log(kategoriId);
-    
+
     if (tipe === "Pengeluaran") {
       const findBudgets = await prisma.budget.findMany({
         where: {
@@ -177,7 +177,6 @@ const addRiwayat = async (req, res) => {
       }
     }
 
-    // Process Bulan
     const existingBulan = await prisma.bulan.findFirst({
       where: {
         bln: findBulan.bln.toString(),
@@ -322,7 +321,7 @@ const updateRiwayat = async (req, res) => {
         Body: buffer,
         ContentType: mimetype,
       };
-      const upload = await s3Client.send(new PutObjectCommand(params));
+      await s3Client.send(new PutObjectCommand(params));
       const newNota = await prisma.nota.create({
         data: { imagePath: imageName },
       });
@@ -334,7 +333,6 @@ const updateRiwayat = async (req, res) => {
 
     let updatedRiwayat;
 
-    // Update the bulan data based on the changes in riwayat
     const existingBulan = await prisma.bulan.findUnique({
       where: { id: parseInt(bulanId) },
     });
@@ -363,7 +361,6 @@ const updateRiwayat = async (req, res) => {
       });
     }
 
-    // Remove the nominal from the old detailBudget if it exists
     if (existingRiwayat.detailBudget) {
       await prisma.detailBudget.update({
         where: { id: existingRiwayat.detailBudget.id },
@@ -374,7 +371,6 @@ const updateRiwayat = async (req, res) => {
       });
     }
 
-    // Find the new budget based on the new kategoriId and tanggal
     const newBudget = await prisma.budget.findFirst({
       where: {
         kategoriId: parseInt(kategoriId),
@@ -405,7 +401,6 @@ const updateRiwayat = async (req, res) => {
       }
     }
 
-    // Update the riwayat with the new kategoriId, detailBudgetId, and tanggal
     updatedRiwayat = await prisma.riwayat.update({
       where: { id: Number(id) },
       data: {
@@ -758,7 +753,7 @@ const getRiwayatSummaryByBulanId = async (req, res) => {
 const getRiwayatByUserIdWeekly = async (req, res) => {
   let response = null;
   try {
-    const userId = req.params.id;
+    const userId = req.user.id;
     const currentDate = new Date();
     const currentDay = currentDate.getDay();
 
@@ -766,10 +761,8 @@ const getRiwayatByUserIdWeekly = async (req, res) => {
     let endDate = new Date(currentDate);
 
     if (currentDay === 0) {
-      // If today is Sunday, set the start date to today and end date to next Saturday
       endDate.setDate(startDate.getDate() + 6);
     } else {
-      // If today is not Sunday, set the start date to the previous Sunday and end date to the upcoming Saturday
       const daysToPreviousSunday = currentDay;
       startDate.setDate(currentDate.getDate() - daysToPreviousSunday);
       endDate.setDate(startDate.getDate() + 6);
@@ -870,7 +863,7 @@ const getRiwayatByUserIdWeeklyByKategori = async (req, res) => {
 const getLast10RiwayatByUserId = async (req, res) => {
   let response = null;
   try {
-    const userId = req.params.id;
+    const userId = req.user.id;
 
     const last10Riwayat = await prisma.riwayat.findMany({
       where: {

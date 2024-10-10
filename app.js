@@ -9,7 +9,7 @@ const riwayatRoutes = require('./module/routes/RiwayatRoutes');
 const kategoriRoutes = require('./module/routes/KategoriRoutes');
 const asalUangRoutes = require('./module/routes/AsalUangRoutes');
 const analisisKeuanganRoutes = require('./module/routes/AnalisisKeuanganRoutes');
-const budgetRoutes = require('./module/routes/BudgetRoutes');
+const anggaranRoutes = require('./module/routes/AnggaranRoutes');
 const chartRoutes = require('./module/routes/ChartRoutes');
 const bulanRoutes = require('./module/routes/BulanRoutes');
 
@@ -27,7 +27,7 @@ app.use('/riwayat', riwayatRoutes);
 app.use('/kategori', kategoriRoutes);
 app.use('/asalUang', asalUangRoutes);
 app.use('/analisis', analisisKeuanganRoutes);
-app.use('/budget', budgetRoutes);
+app.use('/anggaran', anggaranRoutes);
 app.use('/chart', chartRoutes);
 app.use('/bulan', bulanRoutes);
 

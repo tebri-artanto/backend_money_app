@@ -53,7 +53,6 @@ const updateKategori = async (req, res) => {
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    // Check if the new kategori name already exists for the user
     const existingKategori = await prisma.kategori.findFirst({
       where: {
         namaKategori,
@@ -67,7 +66,6 @@ const updateKategori = async (req, res) => {
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
-    // Check if the kategori is used in any riwayat or budget
     const usedInRiwayat = await prisma.riwayat.findFirst({
       where: { kategoriId: parseInt(id) },
     });
@@ -99,7 +97,6 @@ const deleteKategori = async (req, res) => {
     const { id } = req.params;
     console.log(`Deleting kategori with id: ${id}`);
 
-    // Check if the kategori is used in any riwayat or budget
     const usedInRiwayat = await prisma.riwayat.findFirst({
       where: { kategoriId: parseInt(id) },
     });
@@ -161,7 +158,7 @@ const getKategoriById = async (req, res) => {
 };
 
 const getKategoriByUserId = async (req, res) => {
-  const userId = parseInt(req.params.id);
+  const userId = req.user.id;
   const jenisKategori = req.query.jenisKategori;
 
   try {

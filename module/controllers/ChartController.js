@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const Response = require("../model/Response");
 const httpStatus = require("http-status");
@@ -14,7 +14,7 @@ const getWeeklyExpenseIncome = async (req, res) => {
     endOfWeek.setDate(endOfWeek.getDate() + 6);
 
     const weeklyData = await prisma.riwayat.groupBy({
-      by: ['tipe', 'tanggal'],
+      by: ["tipe", "tanggal"],
       where: {
         tanggal: {
           gte: startOfWeek,
@@ -38,15 +38,21 @@ const getWeeklyExpenseIncome = async (req, res) => {
     weeklyData.forEach((data) => {
       const { tipe, tanggal, _sum } = data;
       const day = tanggal.getDay();
-      if (tipe === 'Pengeluaran') {
+      if (tipe === "Pengeluaran") {
         expenseByDay[day] = (_sum.nominal || 0) + (expenseByDay[day] || 0);
-      } else if (tipe === 'Pemasukan') {
+      } else if (tipe === "Pemasukan") {
         incomeByDay[day] = (_sum.nominal || 0) + (incomeByDay[day] || 0);
       }
     });
 
     const daysOfWeek = [
-      'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'
+      "Minggu",
+      "Senin",
+      "Selasa",
+      "Rabu",
+      "Kamis",
+      "Jumat",
+      "Sabtu",
     ];
 
     const weeklyExpenseIncome = daysOfWeek.map((day, index) => ({
@@ -55,10 +61,16 @@ const getWeeklyExpenseIncome = async (req, res) => {
       income: incomeByDay[index] || 0,
     }));
 
-    res.json(new Response.Success(false, 'Weekly expense and income retrieved successfully', weeklyExpenseIncome));
+    res.json(
+      new Response.Success(
+        false,
+        "Weekly expense and income retrieved successfully",
+        weeklyExpenseIncome
+      )
+    );
   } catch (error) {
     console.error(error);
-    res.status(500).json(new Response.Error(true, 'Internal server error'));
+    res.status(500).json(new Response.Error(true, "Internal server error"));
   }
 };
 
@@ -69,12 +81,12 @@ const getRiwayatByUserIdAndTimeframe = async (req, res) => {
     const timeframe = req.query.timeframe;
     const selectedDate = new Date(req.query.date || new Date());
 
-    if (timeframe === 'weekly') {
+    if (timeframe === "weekly") {
       response = await getWeeklyRiwayat(userId, selectedDate);
-    } else if (timeframe === 'monthly') {
+    } else if (timeframe === "monthly") {
       response = await getMonthlyRiwayat(userId, selectedDate);
     } else {
-      throw new Error('Invalid timeframe');
+      throw new Error("Invalid timeframe");
     }
 
     res.status(httpStatus.OK).json(response);
@@ -114,12 +126,12 @@ const getWeeklyRiwayat = async (userId, selectedDate) => {
 
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (item.tipe === 'Pengeluaran') {
+    if (item.tipe === "Pengeluaran") {
       if (!expensesByKategori[kategoriName]) {
         expensesByKategori[kategoriName] = 0;
       }
       expensesByKategori[kategoriName] += item.nominal;
-    } else if (item.tipe === 'Pemasukan') {
+    } else if (item.tipe === "Pemasukan") {
       if (!incomeByKategori[kategoriName]) {
         incomeByKategori[kategoriName] = 0;
       }
@@ -127,16 +139,27 @@ const getWeeklyRiwayat = async (userId, selectedDate) => {
     }
   });
 
-  return new Response.Success(
-    false,
-    'Riwayat retrieved successfully',
-    { expenses: expensesByKategori, income: incomeByKategori }
-  );
+  return new Response.Success(false, "Riwayat retrieved successfully", {
+    expenses: expensesByKategori,
+    income: incomeByKategori,
+  });
 };
 
 const getMonthlyRiwayat = async (userId, selectedDate) => {
-  const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  const startDate = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    1
+  );
+  const endDate = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  );
 
   const riwayat = await prisma.riwayat.findMany({
     where: {
@@ -158,12 +181,12 @@ const getMonthlyRiwayat = async (userId, selectedDate) => {
 
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (item.tipe === 'Pengeluaran') {
+    if (item.tipe === "Pengeluaran") {
       if (!expensesByKategori[kategoriName]) {
         expensesByKategori[kategoriName] = 0;
       }
       expensesByKategori[kategoriName] += item.nominal;
-    } else if (item.tipe === 'Pemasukan') {
+    } else if (item.tipe === "Pemasukan") {
       if (!incomeByKategori[kategoriName]) {
         incomeByKategori[kategoriName] = 0;
       }
@@ -171,11 +194,10 @@ const getMonthlyRiwayat = async (userId, selectedDate) => {
     }
   });
 
-  return new Response.Success(
-    false,
-    'Riwayat retrieved successfully',
-    { expenses: expensesByKategori, income: incomeByKategori }
-  );
+  return new Response.Success(false, "Riwayat retrieved successfully", {
+    expenses: expensesByKategori,
+    income: incomeByKategori,
+  });
 };
 
 const getRincianByUserIdAndTimeframe = async (req, res) => {
@@ -185,12 +207,12 @@ const getRincianByUserIdAndTimeframe = async (req, res) => {
     const timeframe = req.query.timeframe;
     const selectedDate = new Date(req.query.date || new Date());
 
-    if (timeframe === 'weekly') {
+    if (timeframe === "weekly") {
       response = await getWeeklyRincian(userId, selectedDate);
-    } else if (timeframe === 'monthly') {
+    } else if (timeframe === "monthly") {
       response = await getMonthlyRincian(userId, selectedDate);
     } else {
-      throw new Error('Invalid timeframe');
+      throw new Error("Invalid timeframe");
     }
 
     res.status(httpStatus.OK).json(response);
@@ -230,12 +252,12 @@ const getWeeklyRincian = async (userId, selectedDate) => {
 
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (item.tipe === 'Pengeluaran') {
+    if (item.tipe === "Pengeluaran") {
       if (!rincianPengeluaran[kategoriName]) {
         rincianPengeluaran[kategoriName] = 0;
       }
       rincianPengeluaran[kategoriName] += item.nominal;
-    } else if (item.tipe === 'Pemasukan') {
+    } else if (item.tipe === "Pemasukan") {
       if (!rincianPemasukan[kategoriName]) {
         rincianPemasukan[kategoriName] = 0;
       }
@@ -243,16 +265,27 @@ const getWeeklyRincian = async (userId, selectedDate) => {
     }
   });
 
-  return new Response.Success(
-    false,
-    'Rincian retrieved successfully',
-    { pengeluaran: rincianPengeluaran, pemasukan: rincianPemasukan }
-  );
+  return new Response.Success(false, "Rincian retrieved successfully", {
+    pengeluaran: rincianPengeluaran,
+    pemasukan: rincianPemasukan,
+  });
 };
 
 const getMonthlyRincian = async (userId, selectedDate) => {
-  const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
+  const startDate = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    1
+  );
+  const endDate = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  );
 
   const riwayat = await prisma.riwayat.findMany({
     where: {
@@ -275,12 +308,12 @@ const getMonthlyRincian = async (userId, selectedDate) => {
 
   riwayat.forEach((item) => {
     const kategoriName = item.kategori.namaKategori;
-    if (item.tipe === 'Pengeluaran') {
+    if (item.tipe === "Pengeluaran") {
       if (!rincianPengeluaran[kategoriName]) {
         rincianPengeluaran[kategoriName] = 0;
       }
       rincianPengeluaran[kategoriName] += item.nominal;
-    } else if (item.tipe === 'Pemasukan') {
+    } else if (item.tipe === "Pemasukan") {
       if (!rincianPemasukan[kategoriName]) {
         rincianPemasukan[kategoriName] = 0;
       }
@@ -288,21 +321,26 @@ const getMonthlyRincian = async (userId, selectedDate) => {
     }
   });
 
-  return new Response.Success(
-    false,
-    'Rincian retrieved successfully',
-    { pengeluaran: rincianPengeluaran, pemasukan: rincianPemasukan }
-  );
-
-  
+  return new Response.Success(false, "Rincian retrieved successfully", {
+    pengeluaran: rincianPengeluaran,
+    pemasukan: rincianPemasukan,
+  });
 };
 
 const getWeeklyIncomeExpenseChart = async (req, res) => {
   try {
     const userId = req.params.userId;
     const selectedDate = new Date(req.query.date || new Date());
-    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const startOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      1
+    );
+    const endOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      0
+    );
 
     const riwayatData = await prisma.riwayat.findMany({
       where: {
@@ -324,14 +362,17 @@ const getWeeklyIncomeExpenseChart = async (req, res) => {
       },
     });
     // Initialize weekly totals
-    const weeklyTotals = Array.from({ length: 5 }, () => ({ income: 0, expense: 0 }));
+    const weeklyTotals = Array.from({ length: 5 }, () => ({
+      income: 0,
+      expense: 0,
+    }));
 
     riwayatData.forEach((data) => {
       const weekIndex = Math.floor((data.tanggal.getDate() - 1) / 7);
-      
-      if (data.tipe === 'Pemasukan') {
+
+      if (data.tipe === "Pemasukan") {
         weeklyTotals[weekIndex].income += data.nominal;
-      } else if (data.tipe === 'Pengeluaran') {
+      } else if (data.tipe === "Pengeluaran") {
         weeklyTotals[weekIndex].expense += data.nominal;
       }
     });
@@ -342,10 +383,20 @@ const getWeeklyIncomeExpenseChart = async (req, res) => {
       expense: total.expense,
     }));
 
-    res.status(httpStatus.OK).json(new Response.Success(false, 'Weekly income and expense data retrieved successfully', chartData));
+    res
+      .status(httpStatus.OK)
+      .json(
+        new Response.Success(
+          false,
+          "Weekly income and expense data retrieved successfully",
+          chartData
+        )
+      );
   } catch (error) {
     console.error(error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, 'Internal server error'));
+    res
+      .status(httpStatus.INTERNAL_SERVER_ERROR)
+      .json(new Response.Error(true, "Internal server error"));
   }
 };
 
@@ -353,11 +404,19 @@ const getMonthlyTotals = async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const selectedDate = new Date(req.query.date || new Date());
-    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const startOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      1
+    );
+    const endOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      0
+    );
 
     const totals = await prisma.riwayat.groupBy({
-      by: ['tipe'],
+      by: ["tipe"],
       where: {
         tanggal: {
           gte: startOfMonth,
@@ -381,17 +440,23 @@ const getMonthlyTotals = async (req, res) => {
     };
 
     totals.forEach((total) => {
-      if (total.tipe === 'Pemasukan') {
+      if (total.tipe === "Pemasukan") {
         result.income = parseFloat(total._sum.nominal) || 0;
-      } else if (total.tipe === 'Pengeluaran') {
+      } else if (total.tipe === "Pengeluaran") {
         result.expense = parseFloat(total._sum.nominal) || 0;
       }
     });
 
-    res.json(new Response.Success(false, 'Monthly totals retrieved successfully', result));
+    res.json(
+      new Response.Success(
+        false,
+        "Monthly totals retrieved successfully",
+        result
+      )
+    );
   } catch (error) {
     console.error(error);
-    res.status(500).json(new Response.Error(true, 'Internal server error'));
+    res.status(500).json(new Response.Error(true, "Internal server error"));
   }
 };
 
@@ -399,15 +464,26 @@ const getNextMonthPrediction = async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const selectedDate = new Date(req.query.date || new Date());
-    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const startOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      1
+    );
+    const endOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      0
+    );
 
-    // Get average income and expense for the last 3 months
     const lastThreeMonths = await prisma.riwayat.groupBy({
-      by: ['tipe'],
+      by: ["tipe"],
       where: {
         tanggal: {
-          gte: new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() - 2, 1),
+          gte: new Date(
+            startOfMonth.getFullYear(),
+            startOfMonth.getMonth() - 2,
+            1
+          ),
           lte: endOfMonth,
         },
         bulan: {
@@ -428,17 +504,23 @@ const getNextMonthPrediction = async (req, res) => {
     };
 
     lastThreeMonths.forEach((avg) => {
-      if (avg.tipe === 'Pemasukan') {
+      if (avg.tipe === "Pemasukan") {
         result.income = parseFloat(avg._avg.nominal) || 0;
-      } else if (avg.tipe === 'Pengeluaran') {
+      } else if (avg.tipe === "Pengeluaran") {
         result.expense = parseFloat(avg._avg.nominal) || 0;
       }
     });
 
-    res.json(new Response.Success(false, 'Next month prediction retrieved successfully', result));
+    res.json(
+      new Response.Success(
+        false,
+        "Next month prediction retrieved successfully",
+        result
+      )
+    );
   } catch (error) {
     console.error(error);
-    res.status(500).json(new Response.Error(true, 'Internal server error'));
+    res.status(500).json(new Response.Error(true, "Internal server error"));
   }
 };
 
@@ -446,8 +528,16 @@ const getBudgetAnalysis = async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const selectedDate = new Date(req.query.date || new Date());
-    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const startOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      1
+    );
+    const endOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      0
+    );
 
     const budgets = await prisma.budget.findMany({
       where: {
@@ -478,48 +568,65 @@ const getBudgetAnalysis = async (req, res) => {
       },
     });
 
-    const result = await Promise.all(budgets.map(async (budget) => {
-      const usedAmount = await prisma.riwayat.aggregate({
-        where: {
-          kategoriId: budget.kategoriId,
-          tanggal: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-          bulan: {
-            user: {
-              id: userId,
+    const result = await Promise.all(
+      budgets.map(async (budget) => {
+        const usedAmount = await prisma.riwayat.aggregate({
+          where: {
+            kategoriId: budget.kategoriId,
+            tanggal: {
+              gte: startOfMonth,
+              lte: endOfMonth,
             },
+            bulan: {
+              user: {
+                id: userId,
+              },
+            },
+            deleted: false,
           },
-          deleted: false,
-        },
-        _sum: {
-          nominal: true,
-        },
-      });
+          _sum: {
+            nominal: true,
+          },
+        });
 
-      return {
-        category: budget.kategori.namaKategori,
-        total: budget.jumlahBudget,
-        used: usedAmount._sum.nominal || 0,
-      };
-    }));
+        return {
+          category: budget.kategori.namaKategori,
+          total: budget.jumlahBudget,
+          used: usedAmount._sum.nominal || 0,
+        };
+      })
+    );
 
-    res.json(new Response.Success(false, 'Budget analysis retrieved successfully', result));
+    res.json(
+      new Response.Success(
+        false,
+        "Budget analysis retrieved successfully",
+        result
+      )
+    );
   } catch (error) {
     console.error(error);
-    res.status(500).json(new Response.Error(true, 'Internal server error'));
+    res.status(500).json(new Response.Error(true, "Internal server error"));
   }
 };
 
 const analyzeBudgetUsage = async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    console.log(req.user);
+    console.log(req.query);
+    const userId = req.user.id;
     const selectedDate = new Date(req.query.date || new Date());
-    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const startOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      1
+    );
+    const endOfMonth = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      0
+    );
 
-    // Get budgets and actual expenses for each category
     const budgetsWithExpenses = await prisma.budget.findMany({
       where: {
         userId: userId,
@@ -545,22 +652,20 @@ const analyzeBudgetUsage = async (req, res) => {
         },
       },
     });
-    
-    // Calculate average expense for each category
     const categoryExpenses = await prisma.riwayat.groupBy({
-      by: ['kategoriId'],
+      by: ["kategoriId"],
       where: {
         bulan: {
           user: { id: userId },
         },
-        tipe: 'Pengeluaran',
+        tipe: "Pengeluaran",
         deleted: false,
       },
       _avg: {
         nominal: true,
       },
     });
-    
+
     const analysisResults = await Promise.all(
       budgetsWithExpenses.map(async (budget) => {
         const actualExpense = await prisma.riwayat.aggregate({
@@ -573,7 +678,7 @@ const analyzeBudgetUsage = async (req, res) => {
             bulan: {
               user: { id: userId },
             },
-            tipe: 'Pengeluaran',
+            tipe: "Pengeluaran",
             deleted: false,
           },
           _sum: { nominal: true },
@@ -586,21 +691,25 @@ const analyzeBudgetUsage = async (req, res) => {
           (total, detail) => total + (detail._count?.riwayat || 0),
           0
         );
-        
-        const avgExpense = categoryExpenses.find(
-          (expense) => expense.kategoriId === budget.kategoriId
-        )?._avg?.nominal || 0;
+
+        const avgExpense =
+          categoryExpenses.find(
+            (expense) => expense.kategoriId === budget.kategoriId
+          )?._avg?.nominal || 0;
 
         let status, recommendation;
         if (usagePercentage <= 80) {
-          status = 'Baik';
-          recommendation = 'Anda berhasil mengelola pengeluaran dengan baik. Pertahankan kebiasaan ini.';
+          status = "Baik";
+          recommendation =
+            "Anda berhasil mengelola pengeluaran dengan baik. Pertahankan kebiasaan ini.";
         } else if (usagePercentage <= 100) {
-          status = 'Waspada';
-          recommendation = 'Pengeluaran Anda mendekati batas anggaran. Perhatikan pengeluaran Anda dengan lebih cermat.';
+          status = "Waspada";
+          recommendation =
+            "Pengeluaran Anda mendekati batas anggaran. Perhatikan pengeluaran Anda dengan lebih cermat.";
         } else {
-          status = 'Melebihi Anggaran';
-          recommendation = 'Pengeluaran Anda melebihi anggaran. Coba kurangi pengeluaran non-esensial dan evaluasi kembali anggaran Anda.';
+          status = "Melebihi Anggaran";
+          recommendation =
+            "Pengeluaran Anda melebihi anggaran. Coba kurangi pengeluaran non-esensial dan evaluasi kembali anggaran Anda.";
         }
 
         return {
@@ -616,57 +725,73 @@ const analyzeBudgetUsage = async (req, res) => {
       })
     );
 
-    // Generate overall recommendation
-    const overallRecommendation = generateOverallRecommendation(analysisResults);
+    const overallRecommendation =
+      generateOverallRecommendation(analysisResults);
 
     res.json(
-      new Response.Success(false, 'Analisis anggaran berhasil', {
+      new Response.Success(false, "Analisis anggaran berhasil", {
         analysisResults,
         overallRecommendation,
       })
     );
   } catch (error) {
     console.error(error);
-    res.status(500).json(new Response.Error(true, 'Internal server error'));
+    res.status(500).json(new Response.Error(true, "Internal server error"));
   }
 };
 
 const generateOverallRecommendation = (analysisResults) => {
-  const overBudgetCategories = analysisResults.filter((result) => parseFloat(result.persentasePenggunaan) > 100);
-  const underBudgetCategories = analysisResults.filter((result) => parseFloat(result.persentasePenggunaan) < 80);
-  
-  let recommendation = 'Berdasarkan analisis pengeluaran bulan ini:\n\n';
+  const overBudgetCategories = analysisResults.filter(
+    (result) => parseFloat(result.persentasePenggunaan) > 100
+  );
+  const underBudgetCategories = analysisResults.filter(
+    (result) => parseFloat(result.persentasePenggunaan) < 80
+  );
+
+  let recommendation = "Berdasarkan analisis pengeluaran bulan ini:\n\n";
 
   analysisResults.forEach((result) => {
     recommendation += `- ${result.kategori}: `;
     if (result.pengeluaranAktual > result.rataRataPengeluaran) {
-      recommendation += `Pengeluaran bulan ini (${formatRupiah(result.pengeluaranAktual)}) lebih tinggi dari rata-rata (${formatRupiah(result.rataRataPengeluaran)}). Pertimbangkan untuk mengurangi pengeluaran di kategori ini.\n`;
+      recommendation += `Pengeluaran bulan ini (${formatRupiah(
+        result.pengeluaranAktual
+      )}) lebih tinggi dari rata-rata (${formatRupiah(
+        result.rataRataPengeluaran
+      )}). Pertimbangkan untuk mengurangi pengeluaran di kategori ini.\n`;
     } else {
-      recommendation += `Pengeluaran bulan ini (${formatRupiah(result.pengeluaranAktual)}) lebih rendah dari atau sama dengan rata-rata (${formatRupiah(result.rataRataPengeluaran)}). Pertahankan pengeluaran Anda di kategori ini.\n`;
+      recommendation += `Pengeluaran bulan ini (${formatRupiah(
+        result.pengeluaranAktual
+      )}) lebih rendah dari atau sama dengan rata-rata (${formatRupiah(
+        result.rataRataPengeluaran
+      )}). Pertahankan pengeluaran Anda di kategori ini.\n`;
     }
   });
 
   if (overBudgetCategories.length > 0) {
     recommendation +=
-      '\nKategori yang melebihi anggaran: ' +
-      overBudgetCategories.map((c) => c.kategori).join(', ') +
-      '. Pertimbangkan untuk mengevaluasi dan menyesuaikan anggaran atau mengurangi pengeluaran di kategori ini.\n';
+      "\nKategori yang melebihi anggaran: " +
+      overBudgetCategories.map((c) => c.kategori).join(", ") +
+      ". Pertimbangkan untuk mengevaluasi dan menyesuaikan anggaran atau mengurangi pengeluaran di kategori ini.\n";
   }
 
   if (underBudgetCategories.length > 0) {
     recommendation +=
-      '\nKategori dengan penggunaan di bawah 80%: ' +
-      underBudgetCategories.map((c) => c.kategori).join(', ') +
-      '. Anda bisa mempertimbangkan untuk mengalokasikan kelebihan anggaran ini ke kategori lain atau menabung.\n';
+      "\nKategori dengan penggunaan di bawah 80%: " +
+      underBudgetCategories.map((c) => c.kategori).join(", ") +
+      ". Anda bisa mempertimbangkan untuk mengalokasikan kelebihan anggaran ini ke kategori lain atau menabung.\n";
   }
 
-  recommendation += '\nTerus pantau pengeluaran Anda dan sesuaikan anggaran sesuai kebutuhan untuk mencapai tujuan keuangan Anda.';
+  recommendation +=
+    "\nTerus pantau pengeluaran Anda dan sesuaikan anggaran sesuai kebutuhan untuk mencapai tujuan keuangan Anda.";
 
   return recommendation;
 };
 
 const formatRupiah = (number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(number);
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+  }).format(number);
 };
 
 module.exports = {

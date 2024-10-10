@@ -4,14 +4,15 @@ const Response = require("../model/Response");
 const userValidator = require("../utils/UserValidator");
 const logInValidator = require("../utils/LoginValidator");
 const bcrypt = require("../utils/bcrypt");
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const admin = require("../middleware/firebaseMiddle");
 const prisma = new PrismaClient();
 
 const signUp = async (req, res) => {
   let response = null;
   try {
-    const { name, username, email, password } = await userValidator.validateAsync(req.body);
+    const { name, username, email, password } =
+      await userValidator.validateAsync(req.body);
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -34,21 +35,21 @@ const signUp = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password);
-    
+
     const defaultKategori = [
-      { namaKategori: 'Makanan', jenisKategori: 'Pengeluaran' },
-      { namaKategori: 'Transportasi', jenisKategori: 'Pengeluaran' },
-      { namaKategori: 'Belanja', jenisKategori: 'Pengeluaran' },
-      { namaKategori: 'Hiburan', jenisKategori: 'Pengeluaran' },
-      { namaKategori: 'Gaji', jenisKategori: 'Pemasukan' },
-      { namaKategori: 'Bonus', jenisKategori: 'Pemasukan' },
-      { namaKategori: 'Investasi', jenisKategori: 'Pemasukan' },
+      { namaKategori: "Makanan", jenisKategori: "Pengeluaran" },
+      { namaKategori: "Transportasi", jenisKategori: "Pengeluaran" },
+      { namaKategori: "Belanja", jenisKategori: "Pengeluaran" },
+      { namaKategori: "Hiburan", jenisKategori: "Pengeluaran" },
+      { namaKategori: "Gaji", jenisKategori: "Pemasukan" },
+      { namaKategori: "Bonus", jenisKategori: "Pemasukan" },
+      { namaKategori: "Investasi", jenisKategori: "Pemasukan" },
     ];
 
     const defaultAsalUang = [
-      { tipeAsalUang: 'Cash' },
-      { tipeAsalUang: 'Rekening' },
-      { tipeAsalUang: 'Dompet Digital' },
+      { tipeAsalUang: "Cash" },
+      { tipeAsalUang: "Rekening" },
+      { tipeAsalUang: "Dompet Digital" },
     ];
 
     const user = await prisma.$transaction(async (prisma) => {
@@ -61,24 +62,28 @@ const signUp = async (req, res) => {
         },
       });
 
-      await Promise.all(defaultKategori.map(kategori => 
-        prisma.kategori.create({
-          data: {
-            namaKategori: kategori.namaKategori,
-            jenisKategori: kategori.jenisKategori,
-            userId: newUser.id,
-          },
-        })
-      ));
+      await Promise.all(
+        defaultKategori.map((kategori) =>
+          prisma.kategori.create({
+            data: {
+              namaKategori: kategori.namaKategori,
+              jenisKategori: kategori.jenisKategori,
+              userId: newUser.id,
+            },
+          })
+        )
+      );
 
-      await Promise.all(defaultAsalUang.map(asalUang => 
-        prisma.asalUang.create({
-          data: {
-            ...asalUang,
-            userId: newUser.id,
-          },
-        })
-      ));
+      await Promise.all(
+        defaultAsalUang.map((asalUang) =>
+          prisma.asalUang.create({
+            data: {
+              ...asalUang,
+              userId: newUser.id,
+            },
+          })
+        )
+      );
 
       return newUser;
     });
@@ -107,7 +112,10 @@ const logIn = async (req, res) => {
       return;
     }
 
-    const isValidPassword = await bcrypt.compare(request.password, user.password);
+    const isValidPassword = await bcrypt.compare(
+      request.password,
+      user.password
+    );
     if (!isValidPassword) {
       response = new Response.Error(true, signInErrorMessage);
       res.status(httpStatus.BAD_REQUEST).json(response);
@@ -116,8 +124,6 @@ const logIn = async (req, res) => {
 
     const createJwtToken = jwt.sign({ id: user.id }, process.env.KEY);
 
-    console.log("User logged in:", user.username);
-
     if (request.fcmToken) {
       console.log("FCM Token provided:", request.fcmToken);
       await prisma.user.update({
@@ -125,24 +131,6 @@ const logIn = async (req, res) => {
         data: { fcmToken: request.fcmToken },
       });
       user.fcmToken = request.fcmToken;
-
-      if (user.fcmToken) {
-        console.log("Sending notification to:", user.fcmToken);
-        const message = {
-          notification: {
-            title: 'Login Baru',
-            body: 'Anda berhasil login.',
-          },
-          token: user.fcmToken,
-        };
-
-        try {
-          await admin.messaging().send(message);
-          console.log('Berhasil mengirim notifikasi login');
-        } catch (error) {
-          console.error('Error mengirim notifikasi login:', error);
-        }
-      }
     } else {
       console.log("Web login - no FCM token provided");
     }
@@ -158,28 +146,30 @@ const logIn = async (req, res) => {
 
 const authenticateToken = async (req, res, next) => {
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({ error: "Tidak ada token yang disediakan" });
     }
 
     const decoded = jwt.verify(token, process.env.KEY);
-    
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, username: true } 
+      select: { id: true, username: true },
     });
 
     if (!user) {
-      return res.status(403).json({ error: "Pengguna tidak ditemukan atau tidak aktif" });
+      return res
+        .status(403)
+        .json({ error: "Pengguna tidak ditemukan atau tidak aktif" });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error('Error dalam otentikasi token:', error);
+    console.error("Error dalam otentikasi token:", error);
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(403).json({ error: "Token tidak valid" });
     }
@@ -197,8 +187,8 @@ const getUserProfile = async (req, res) => {
         bulan: true,
         kategori: true,
         asalUang: true,
-        budget: true
-      }
+        budget: true,
+      },
     });
 
     if (!user) {
@@ -224,7 +214,9 @@ const logout = async (req, res) => {
     res.json(new Response.Success(false, "Berhasil logout", null));
   } catch (error) {
     console.error("Error saat logout:", error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Kesalahan Server Internal"));
+    res
+      .status(httpStatus.INTERNAL_SERVER_ERROR)
+      .json(new Response.Error(true, "Kesalahan Server Internal"));
   }
 };
 
@@ -233,23 +225,34 @@ const editProfile = async (req, res) => {
     const userId = req.user.id;
     const { name, username, email } = req.body;
 
-    // Validate input
     if (!name && !username && !email) {
-      return res.status(httpStatus.BAD_REQUEST).json(new Response.Error(true, "Setidaknya satu (nama, username, atau email) harus diisi"));
+      return res
+        .status(httpStatus.BAD_REQUEST)
+        .json(
+          new Response.Error(
+            true,
+            "Setidaknya satu (nama, username, atau email) harus diisi"
+          )
+        );
     }
 
-    // Check if username or email already exists
     if (username) {
-      const existingUser = await prisma.user.findUnique({ where: { username } });
+      const existingUser = await prisma.user.findUnique({
+        where: { username },
+      });
       if (existingUser && existingUser.id !== userId) {
-        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Username sudah digunakan"));
+        return res
+          .status(httpStatus.CONFLICT)
+          .json(new Response.Error(true, "Username sudah digunakan"));
       }
     }
 
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
       if (existingUser && existingUser.id !== userId) {
-        return res.status(httpStatus.CONFLICT).json(new Response.Error(true, "Email sudah digunakan"));
+        return res
+          .status(httpStatus.CONFLICT)
+          .json(new Response.Error(true, "Email sudah digunakan"));
       }
     }
     const updatedUser = await prisma.user.update({
@@ -264,13 +267,17 @@ const editProfile = async (req, res) => {
         name: true,
         username: true,
         email: true,
-      }
+      },
     });
 
-    res.json(new Response.Success(false, "Profil berhasil diperbarui", updatedUser));
+    res.json(
+      new Response.Success(false, "Profil berhasil diperbarui", updatedUser)
+    );
   } catch (error) {
     console.error("Error memperbarui profil pengguna:", error);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).json(new Response.Error(true, "Kesalahan Server Internal"));
+    res
+      .status(httpStatus.INTERNAL_SERVER_ERROR)
+      .json(new Response.Error(true, "Kesalahan Server Internal"));
   }
 };
 
@@ -282,12 +289,19 @@ const changePassword = async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
-      return res.status(404).json(new Response.Error(true, "Pengguna tidak ditemukan"));
+      return res
+        .status(404)
+        .json(new Response.Error(true, "Pengguna tidak ditemukan"));
     }
 
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
     if (!isValidPassword) {
-      return res.status(400).json(new Response.Error(true, "Password saat ini salah"));
+      return res
+        .status(400)
+        .json(new Response.Error(true, "Password saat ini salah"));
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword);
@@ -297,11 +311,21 @@ const changePassword = async (req, res) => {
       data: { password: hashedNewPassword },
     });
 
-    res.status(httpStatus.OK).json(new Response.Success(false, "Kata sandi berhasil diubah"));
+    res
+      .status(httpStatus.OK)
+      .json(new Response.Success(false, "Kata sandi berhasil diubah"));
   } catch (error) {
     console.error("Error mengubah kata sandi:", error);
     res.status(500).json(new Response.Error(true, "Kesalahan Server Internal"));
   }
 };
 
-module.exports = { signUp, logIn, getUserProfile, authenticateToken, logout, editProfile, changePassword };
+module.exports = {
+  signUp,
+  logIn,
+  getUserProfile,
+  authenticateToken,
+  logout,
+  editProfile,
+  changePassword,
+};
