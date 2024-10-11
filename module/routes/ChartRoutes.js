@@ -5,6 +5,7 @@ const auth = require("../middleware/requireAuth");
 
 
 router.use(auth);
+
 router.get("/getWeeklyChart/:userId", chartController.getWeeklyExpenseIncome);
 router.get("/user/:id/riwayat", chartController.getRiwayatByUserIdAndTimeframe);
 router.get('/user/:id/rincian', chartController.getRincianByUserIdAndTimeframe);

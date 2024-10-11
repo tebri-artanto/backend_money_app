@@ -4,8 +4,11 @@ const httpStatus = require("http-status");
 const Response = require("../model/Response");
 
 let response = null;
+
 const addBudget = async (req, res) => {
   try {
+    console.log("masuk add budget");
+    console.log(req.body);
     const {
       kategoriId,
       userId,
@@ -15,10 +18,11 @@ const addBudget = async (req, res) => {
       tanggalSelesai,
       isBerulang,
     } = req.body;
+
     const startDate = new Date(tanggalMulai);
     const endDate = tanggalSelesai ? new Date(tanggalSelesai) : null;
 
-    const overlappingBudgets = await prisma.budget.findMany({
+    const findBudget = await prisma.budget.findMany({
       where: {
         userId: parseInt(userId),
         kategoriId: parseInt(kategoriId),
@@ -26,16 +30,22 @@ const addBudget = async (req, res) => {
           some: {
             OR: [
               {
-                tanggalMulai: { lte: startDate },
-                tanggalSelesai: { gte: startDate },
+                AND: [
+                  { tanggalMulai: { lte: startDate } },
+                  { tanggalSelesai: { gte: startDate } },
+                ],
               },
               {
-                tanggalMulai: { lte: endDate },
-                tanggalSelesai: { gte: endDate },
+                AND: [
+                  { tanggalMulai: { lte: endDate } },
+                  { tanggalSelesai: { gte: endDate } },
+                ],
               },
               {
-                tanggalMulai: { gte: startDate },
-                tanggalSelesai: { lte: endDate },
+                AND: [
+                  { tanggalMulai: { gte: startDate } },
+                  { tanggalSelesai: { lte: endDate } },
+                ],
               },
             ],
           },
@@ -43,82 +53,104 @@ const addBudget = async (req, res) => {
       },
     });
 
-    if (overlappingBudgets.length > 0) {
-      return res
-        .status(httpStatus.BAD_REQUEST)
-        .json(
-          new Response.Error(
-            true,
-            "Budget already exists for the given date range"
-          )
-        );
+    if (findBudget.length > 0) {
+      console.log("budget already exists");
+      response = new Response.Error(true, "Budget already exists for the given date range");
+      return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
-    const budget = await prisma.budget.create({
-      data: {
-        jumlahBudget: parseFloat(jumlahBudget),
-        kategoriId: parseInt(kategoriId),
-        userId: parseInt(userId),
-        frekuensi,
-        isBerulang,
-        status: "Aktif",
-      },
-    });
+    const budgetData = {
+      jumlahBudget: parseFloat(jumlahBudget),
+      kategoriId: parseInt(kategoriId),
+      userId: parseInt(userId),
+      frekuensi: frekuensi,
+      isBerulang: isBerulang,
+      status: "Aktif",
+    };
+
+    const budget = await prisma.budget.create({ data: budgetData });
+
+    const detailBudgets = [];
 
     let currentDate = new Date(startDate);
     let iteration = 1;
 
     while (currentDate <= endDate) {
-      const nextDate =
-        frekuensi === "Bulanan" && isBerulang
-          ? new Date(currentDate.setDate(currentDate.getDate() + 29))
-          : new Date(
-              currentDate.setDate(
-                currentDate.getDate() + (frekuensi === "Bulanan" ? 29 : 6)
-              )
-            );
+      console.log("masuk while");
+      
+      let nextDate;
+
+      if (frekuensi === "Bulanan") {
+        if (isBerulang) {
+          nextDate = new Date(currentDate);
+          nextDate.setDate(nextDate.getDate() + 29);
+          console.log(nextDate);
+      console.log(endDate);
+  
+        } else {
+          nextDate = endDate;
+        }
+      } else {
+        // Mingguan
+        nextDate = new Date(currentDate);
+        nextDate.setDate(nextDate.getDate() + 6);
+       
+      }
+
       const riwayatPengeluaran = await prisma.riwayat.findMany({
         where: {
-          tanggal: { gte: currentDate, lte: nextDate },
+          tanggal: {
+            gte: currentDate,
+            lte: nextDate,
+          },
           kategoriId: parseInt(kategoriId),
           tipe: "Pengeluaran",
           deleted: false,
         },
       });
-      const totalPengeluaran = riwayatPengeluaran.reduce(
-        (total, riwayat) => total + riwayat.nominal,
-        0
-      );
-      const detailBudget = await prisma.detailBudget.create({
-        data: {
-          budgetId: budget.id,
-          sisaBudget: parseFloat(jumlahBudget) - totalPengeluaran,
-          terpakai: totalPengeluaran,
-          tanggalMulai: currentDate,
-          tanggalSelesai: nextDate,
-          pengulangan: iteration,
-        },
-      });
+
+      const totalPengeluaran = riwayatPengeluaran.reduce((total, riwayat) => total + riwayat.nominal, 0);
+      
+      const detailBudgetData = {
+        budgetId: budget.id,
+        sisaBudget: parseFloat(jumlahBudget) - totalPengeluaran,
+        terpakai: totalPengeluaran,
+        tanggalMulai: currentDate,
+        tanggalSelesai: nextDate,
+        pengulangan: iteration,
+      };
+
+      const detailBudget = await prisma.detailBudget.create({ data: detailBudgetData });
+      console.log(detailBudget);
+
+
       await prisma.riwayat.updateMany({
         where: {
-          id: { in: riwayatPengeluaran.map((riwayat) => riwayat.id) },
+          id: {
+            in: riwayatPengeluaran.map((riwayat) => riwayat.id),
+          },
           deleted: false,
         },
-        data: { detailBudgetId: detailBudget.id },
+        data: {
+          detailBudgetId: detailBudget.id,
+        },
       });
 
-      currentDate = new Date(nextDate.setDate(nextDate.getDate() + 1));
+      detailBudgets.push(detailBudget);
+
+      currentDate = new Date(nextDate);
+      currentDate.setDate(currentDate.getDate() + 1);
+
       iteration++;
     }
 
-    res
-      .status(httpStatus.OK)
-      .json(new Response.Success(false, "Budget added successfully", budget));
+    console.log("berhasil add budget");
+    response = new Response.Success(false, "Budget added successfully", budget);
+    res.status(httpStatus.OK).json(response);
   } catch (error) {
+    response = new Response.Error(true, error.message);
     console.error(error);
-    res
-      .status(httpStatus.BAD_REQUEST)
-      .json(new Response.Error(true, error.message));
+    res.status(httpStatus.BAD_REQUEST).json(response);
   }
 };
 const updateBudget = async (req, res) => {

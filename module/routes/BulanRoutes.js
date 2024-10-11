@@ -4,6 +4,7 @@ const bulanController = require("../controllers/BulanController");
 const auth = require("../middleware/requireAuth");
 
 router.use(auth);
+
 router.get("/", bulanController.getAllBulan);
 router.get("/today/user", bulanController.getBulanByTodayBulan);
 
