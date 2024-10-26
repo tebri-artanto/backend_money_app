@@ -76,7 +76,6 @@ const addBudget = async (req, res) => {
     let iteration = 1;
 
     while (currentDate <= endDate) {
-      console.log("masuk while");
       
       let nextDate;
 
@@ -84,14 +83,10 @@ const addBudget = async (req, res) => {
         if (isBerulang) {
           nextDate = new Date(currentDate);
           nextDate.setDate(nextDate.getDate() + 29);
-          console.log(nextDate);
-      console.log(endDate);
-  
         } else {
           nextDate = endDate;
         }
       } else {
-        // Mingguan
         nextDate = new Date(currentDate);
         nextDate.setDate(nextDate.getDate() + 6);
        
@@ -121,8 +116,6 @@ const addBudget = async (req, res) => {
       };
 
       const detailBudget = await prisma.detailBudget.create({ data: detailBudgetData });
-      console.log(detailBudget);
-
 
       await prisma.riwayat.updateMany({
         where: {
@@ -292,7 +285,6 @@ const deleteBudget = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find the budget by id
     const budget = await prisma.budget.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -305,10 +297,7 @@ const deleteBudget = async (req, res) => {
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    // Get the detail budget ids associated with the budget
     const detailBudgetIds = budget.detailBudget.map((detail) => detail.id);
-
-    // Update riwayat records to remove references to the detail budgets
     await prisma.riwayat.updateMany({
       where: {
         detailBudgetId: {
@@ -321,14 +310,12 @@ const deleteBudget = async (req, res) => {
       },
     });
 
-    // Delete the associated detail budgets
     await prisma.detailBudget.deleteMany({
       where: {
         budgetId: budget.id,
       },
     });
 
-    // Delete the budget
     await prisma.budget.delete({
       where: { id: budget.id },
     });
@@ -467,92 +454,6 @@ const getBudgetByUserId = async (req, res) => {
   }
 };
 
-const updateSisaBudget = async (req, res) => {
-  try {
-    const currentDate = new Date();
-    const currentDay = currentDate.getDay(); // 0 (Sunday) to 6 (Saturday)
-    const currentDateOfMonth = currentDate.getDate();
-
-    const budgets = await prisma.budget.findMany({
-      where: {
-        status: "Aktif",
-        tanggalSelesai: {
-          gte: currentDate,
-        },
-      },
-    });
-
-    for (const budget of budgets) {
-      if (
-        budget.frekuensi === "Harian" ||
-        (budget.frekuensi === "Mingguan" &&
-          currentDay === getDayIndex(budget.pengulangan)) ||
-        (budget.frekuensi === "Bulanan" &&
-          currentDateOfMonth === budget.tanggalMulai.getDate())
-      ) {
-        await prisma.budget.update({
-          where: { id: budget.id },
-          data: { sisaBudget: budget.jumlahBudget },
-        });
-      }
-    }
-
-    response = new Response.Success(false, "Sisa Budget updated successfully");
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    console.error(error);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
-
-// Helper function to get the day index based on the day name
-const getDayIndex = (dayName) => {
-  const daysOfWeek = [
-    "Minggu",
-    "Senin",
-    "Selasa",
-    "Rabu",
-    "Kamis",
-    "Jumat",
-    "Sabtu",
-  ];
-  return daysOfWeek.indexOf(dayName);
-};
-
-const updateBudgetStatus = async (req, res) => {
-  try {
-    const currentDate = new Date();
-
-    const budgets = await prisma.budget.findMany({
-      where: {
-        status: "Aktif",
-        tanggalSelesai: {
-          lte: currentDate,
-        },
-      },
-    });
-    console.log(currentDate);
-    console.log(budgets);
-
-    for (const budget of budgets) {
-      await prisma.budget.update({
-        where: { id: budget.id },
-        data: { status: "Tidak Aktif" },
-      });
-    }
-
-    response = new Response.Success(
-      false,
-      "Budget status updated successfully"
-    );
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    console.error(error);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
 const getBudgetByUserIdAndMonth = async (req, res) => {
   const userId = parseInt(req.params.id);
   const selectedDate = new Date(req.query.date);
@@ -655,7 +556,5 @@ module.exports = {
   getAllBudget,
   getBudgetById,
   getBudgetByUserId,
-  updateSisaBudget,
-  updateBudgetStatus,
   getBudgetByUserIdAndMonth,
 };

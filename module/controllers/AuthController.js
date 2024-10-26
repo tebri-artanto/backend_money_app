@@ -44,6 +44,7 @@ const signUp = async (req, res) => {
       { namaKategori: "Gaji", jenisKategori: "Pemasukan" },
       { namaKategori: "Bonus", jenisKategori: "Pemasukan" },
       { namaKategori: "Investasi", jenisKategori: "Pemasukan" },
+      { namaKategori: "Tabungan Utama", jenisKategori: "Tabungan" },
     ];
 
     const defaultAsalUang = [

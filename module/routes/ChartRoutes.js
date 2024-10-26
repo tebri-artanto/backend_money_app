@@ -6,10 +6,9 @@ const auth = require("../middleware/requireAuth");
 
 router.use(auth);
 
-router.get("/getWeeklyChart/:userId", chartController.getWeeklyExpenseIncome);
 router.get("/user/:id/riwayat", chartController.getRiwayatByUserIdAndTimeframe);
-router.get('/user/:id/rincian', chartController.getRincianByUserIdAndTimeframe);
 router.get('/weekly-income-expense/:userId', chartController.getWeeklyIncomeExpenseChart);
+router.get('/savings-total/:userId', chartController.totalTabungan);
 
 router.get('/user/:userId/monthly-totals', chartController.getMonthlyTotals);
 router.get('/user/:userId/next-month-prediction', chartController.getNextMonthPrediction);

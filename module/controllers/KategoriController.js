@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
-const httpStatus = require('http-status');
-const Response = require('../model/Response');
+const httpStatus = require("http-status");
+const Response = require("../model/Response");
 
 let response = null;
 
@@ -9,7 +9,6 @@ const addKategori = async (req, res) => {
   try {
     const { namaKategori, userId, jenisKategori } = req.body;
 
-    // Check if the kategori name already exists for the user
     const existingKategori = await prisma.kategori.findFirst({
       where: {
         namaKategori,
@@ -18,7 +17,7 @@ const addKategori = async (req, res) => {
     });
 
     if (existingKategori) {
-      response = new Response.Error(true, 'Nama kategori sudah digunakan');
+      response = new Response.Error(true, "Nama kategori sudah digunakan");
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
@@ -30,7 +29,11 @@ const addKategori = async (req, res) => {
       },
     });
 
-    response = new Response.Success(false, 'Kategori berhasil ditambahkan', kategori);
+    response = new Response.Success(
+      false,
+      "Kategori berhasil ditambahkan",
+      kategori
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -43,13 +46,12 @@ const updateKategori = async (req, res) => {
     const { namaKategori } = req.body;
     const { id } = req.params;
 
-    // Check if the kategori exists
     const kategori = await prisma.kategori.findUnique({
       where: { id: parseInt(id) },
     });
 
     if (!kategori) {
-      response = new Response.Error(true, 'Kategori not found');
+      response = new Response.Error(true, "Kategori not found");
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
@@ -62,7 +64,7 @@ const updateKategori = async (req, res) => {
     });
 
     if (existingKategori) {
-      response = new Response.Error(true, 'Nama kategori sudah digunakan');
+      response = new Response.Error(true, "Nama kategori sudah digunakan");
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
@@ -75,7 +77,10 @@ const updateKategori = async (req, res) => {
     });
 
     if (usedInRiwayat || usedInBudget) {
-      response = new Response.Error(true, 'Tidak dapat mengubah kategori. Kategori sedang digunakan dalam riwayat atau anggaran.');
+      response = new Response.Error(
+        true,
+        "Tidak dapat mengubah kategori. Kategori sedang digunakan dalam riwayat atau anggaran."
+      );
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
@@ -84,7 +89,11 @@ const updateKategori = async (req, res) => {
       data: { namaKategori },
     });
 
-    response = new Response.Success(false, 'Kategori updated successfully', updatedKategori);
+    response = new Response.Success(
+      false,
+      "Kategori updated successfully",
+      updatedKategori
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -100,30 +109,37 @@ const deleteKategori = async (req, res) => {
     const usedInRiwayat = await prisma.riwayat.findFirst({
       where: { kategoriId: parseInt(id) },
     });
-    console.log(`Used in riwayat: ${usedInRiwayat ? 'Yes' : 'No'}`);
+    console.log(`Used in riwayat: ${usedInRiwayat ? "Yes" : "No"}`);
 
     const usedInBudget = await prisma.budget.findFirst({
       where: { kategoriId: parseInt(id) },
     });
-    console.log(`Used in budget: ${usedInBudget ? 'Yes' : 'No'}`);
+    console.log(`Used in budget: ${usedInBudget ? "Yes" : "No"}`);
 
     if (usedInRiwayat || usedInBudget) {
-      response = new Response.Error(true, 'Tidak dapat menghapus kategori. Kategori sedang digunakan dalam riwayat atau anggaran.');
-      console.log('Kategori is in use, cannot delete.');
+      response = new Response.Error(
+        true,
+        "Tidak dapat menghapus kategori. Kategori sedang digunakan dalam riwayat atau anggaran."
+      );
+      console.log("Kategori is in use, cannot delete.");
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
     const kategori = await prisma.kategori.delete({
       where: { id: parseInt(id) },
     });
-    console.log(`Kategori deleted: ${kategori ? 'Yes' : 'No'}`);
+    console.log(`Kategori deleted: ${kategori ? "Yes" : "No"}`);
 
-    response = new Response.Success(false, 'Kategori deleted successfully', kategori);
-    console.log('Kategori deleted successfully.');
+    response = new Response.Success(
+      false,
+      "Kategori deleted successfully",
+      kategori
+    );
+    console.log("Kategori deleted successfully.");
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
-    console.error('Error deleting kategori:', error);
+    console.error("Error deleting kategori:", error);
     res.status(httpStatus.INTERNAL_SERVER_ERROR).json(response);
   }
 };
@@ -131,7 +147,11 @@ const deleteKategori = async (req, res) => {
 const getAllKategori = async (req, res) => {
   try {
     const kategori = await prisma.kategori.findMany();
-    response = new Response.Success(false, 'Kategori retrieved successfully', kategori);
+    response = new Response.Success(
+      false,
+      "Kategori retrieved successfully",
+      kategori
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -148,7 +168,11 @@ const getKategoriById = async (req, res) => {
       where: { id: parseInt(id) },
     });
 
-    response = new Response.Success(false, 'Kategori retrieved successfully', kategori);
+    response = new Response.Success(
+      false,
+      "Kategori retrieved successfully",
+      kategori
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);
@@ -163,7 +187,7 @@ const getKategoriByUserId = async (req, res) => {
 
   try {
     let kategoriQuery = {
-      where: { userId: userId }
+      where: { userId: userId },
     };
 
     if (jenisKategori) {
@@ -172,7 +196,11 @@ const getKategoriByUserId = async (req, res) => {
 
     const kategori = await prisma.kategori.findMany(kategoriQuery);
 
-    response = new Response.Success(false, 'Kategori retrieved successfully', kategori);
+    response = new Response.Success(
+      false,
+      "Kategori retrieved successfully",
+      kategori
+    );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
     response = new Response.Error(true, error.message);

@@ -30,92 +30,6 @@ const s3Client = new S3Client({
 const upload = multer({
   storage: multer.memoryStorage({}),
 });
-
-const uploadNotaTest = async (req, res) => {
-  try {
-    const { originalname, buffer, mimetype } = req.file;
-
-    const generateRandomName = () => {
-      const characters =
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let randomName = "";
-      for (let i = 0; i < 10; i++) {
-        randomName += characters.charAt(
-          Math.floor(Math.random() * characters.length)
-        );
-      }
-      return randomName;
-    };
-    const imageName = `${generateRandomName()}_${Date.now()}.${originalname
-      .split(".")
-      .pop()}`;
-    console.log(imageName);
-    const params = {
-      Bucket: bucketName,
-      Key: imageName,
-      Body: buffer,
-      ContentType: mimetype,
-    };
-
-    const upload = await s3Client.send(new PutObjectCommand(params));
-    console.log(upload);
-
-    const newNota = await prisma.nota.create({
-      data: {
-        imagePath: imageName,
-      },
-    });
-
-    console.log(newNota);
-    notaId = newNota.id;
-
-    res.status(200).json({ message: "Image uploaded successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-const uploadNota = async (originalname, buffer, mimetype) => {
-  try {
-    const generateRandomName = () => {
-      const characters =
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let randomName = "";
-      for (let i = 0; i < 10; i++) {
-        randomName += characters.charAt(
-          Math.floor(Math.random() * characters.length)
-        );
-      }
-      return randomName;
-    };
-    const imageName = `${generateRandomName()}_${Date.now()}.${originalname
-      .split(".")
-      .pop()}`;
-    console.log(imageName);
-    const params = {
-      Bucket: bucketName,
-      Key: imageName,
-      Body: buffer,
-      ContentType: mimetype,
-    };
-
-    const upload = await s3Client.send(new PutObjectCommand(params));
-    console.log(upload);
-
-    const newNota = await prisma.nota.create({
-      data: {
-        imagePath: imageName,
-      },
-    });
-
-    console.log(newNota);
-    return newNota.id;
-  } catch (error) {
-    console.error(error);
-    throw new Error("Internal server error");
-  }
-};
-
 const addRiwayat = async (req, res) => {
   let response = null;
   try {
@@ -136,8 +50,9 @@ const addRiwayat = async (req, res) => {
     let detailBudgetId = null;
     console.log(tipe);
     console.log(kategoriId);
-
-    if (tipe === "Pengeluaran") {
+    
+    // Check budget for both Pengeluaran and Tabungan types
+    if (tipe === "Pengeluaran" || tipe === "Tabungan") {
       const findBudgets = await prisma.budget.findMany({
         where: {
           kategoriId: parseInt(kategoriId),
@@ -186,18 +101,26 @@ const addRiwayat = async (req, res) => {
     });
 
     if (existingBulan) {
+      const updatedData = {};
+      
+      switch(tipe) {
+        case "Pemasukan":
+          updatedData.pemasukan = { increment: parseFloat(nominal) };
+          updatedData.total = { increment: parseFloat(nominal) };
+          break;
+        case "Pengeluaran":
+          updatedData.pengeluaran = { increment: parseFloat(nominal) };
+          updatedData.total = { decrement: parseFloat(nominal) };
+          break;
+        case "Tabungan":
+          updatedData.tabungan = { increment: parseFloat(nominal) };
+          updatedData.total = { decrement: parseFloat(nominal) };
+          break;
+      }
+
       const updatedBulan = await prisma.bulan.update({
         where: { id: existingBulan.id },
-        data:
-          tipe === "Pemasukan"
-            ? {
-                pemasukan: { increment: parseFloat(nominal) },
-                total: { increment: parseFloat(nominal) },
-              }
-            : {
-                pengeluaran: { increment: parseFloat(nominal) },
-                total: { decrement: parseFloat(nominal) },
-              },
+        data: updatedData,
       });
       bulanId = updatedBulan.id;
     } else {
@@ -208,8 +131,10 @@ const addRiwayat = async (req, res) => {
           tahun: findBulan.tahun.toString(),
           pemasukan: tipe === "Pemasukan" ? parseFloat(nominal) : 0,
           pengeluaran: tipe === "Pengeluaran" ? parseFloat(nominal) : 0,
-          total:
-            tipe === "Pemasukan" ? parseFloat(nominal) : -parseFloat(nominal),
+          tabungan: tipe === "Tabungan" ? parseFloat(nominal) : 0,
+          total: tipe === "Pemasukan" ? 
+            parseFloat(nominal) : 
+            -parseFloat(nominal), 
         },
       });
       bulanId = newBulan.id;
@@ -337,27 +262,34 @@ const updateRiwayat = async (req, res) => {
       where: { id: parseInt(bulanId) },
     });
 
+    
+
     if (existingBulan) {
-      const updatedBulan = await prisma.bulan.update({
+      let updateData = {};
+      const nominalDiff = parseFloat(nominal) - existingRiwayat.nominal;
+        switch(tipe) {
+          case "Pemasukan":
+            updateData = {
+              pemasukan: { increment: nominalDiff },
+              total: { increment: nominalDiff },
+            };
+            break;
+          case "Pengeluaran":
+            updateData = {
+              pengeluaran: { increment: nominalDiff },
+              total: { decrement: nominalDiff },
+            };
+            break;
+          case "Tabungan":
+            updateData = {
+              tabungan: { increment: nominalDiff },
+              total: { decrement: nominalDiff },
+            };
+            break;
+        }
+      await prisma.bulan.update({
         where: { id: parseInt(bulanId) },
-        data:
-          tipe === "Pemasukan"
-            ? {
-                pemasukan: {
-                  increment: parseFloat(nominal) - existingRiwayat.nominal,
-                },
-                total: {
-                  increment: parseFloat(nominal) - existingRiwayat.nominal,
-                },
-              }
-            : {
-                pengeluaran: {
-                  increment: parseFloat(nominal) - existingRiwayat.nominal,
-                },
-                total: {
-                  decrement: parseFloat(nominal) - existingRiwayat.nominal,
-                },
-              },
+        data: updateData,
       });
     }
 
@@ -450,7 +382,6 @@ const deleteRiwayat = async (req, res) => {
 
     const { tipe, nominal, bulanId, notaId, detailBudgetId } = riwayat;
 
-    // Update the bulan data
     if (tipe === "Pemasukan") {
       await prisma.bulan.update({
         where: { id: bulanId },
@@ -468,7 +399,6 @@ const deleteRiwayat = async (req, res) => {
         },
       });
 
-      // Update the detailBudget data if applicable
       if (detailBudgetId) {
         await prisma.detailBudget.update({
           where: { id: detailBudgetId },
@@ -478,9 +408,16 @@ const deleteRiwayat = async (req, res) => {
           },
         });
       }
+    } else if (tipe === "Tabungan") {
+      await prisma.bulan.update({
+        where: { id: bulanId },
+        data: {
+          tabungan: { decrement: parseFloat(nominal) },
+          total: { increment: parseFloat(nominal) },
+        },
+      });
     }
 
-    // Perform soft delete by updating the 'deleted' field to true
     await prisma.riwayat.update({
       where: { id: Number(id) },
       data: { deleted: true },
@@ -585,35 +522,6 @@ const getRiwayatById = async (req, res) => {
   }
 };
 
-const getRiwayatByBulanId = async (req, res) => {
-  let response = null;
-  try {
-    const bulanId = req.params.id;
-    console.log(bulanId);
-    const riwayat = await prisma.riwayat.findMany({
-      where: {
-        bulanId: Number(bulanId),
-        deleted: false,
-      },
-      include: {
-        asalUang: true,
-        kategori: true,
-        nota: true,
-        bulan: true,
-      },
-    });
-
-    response = new Response.Success(
-      false,
-      "Riwayat retrieved successfully",
-      riwayat
-    );
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
 const getBulanByBulanAndTahun = async (req, res) => {
   let response = null;
   try {
@@ -709,47 +617,6 @@ const getRiwayatByDetailBudgetId = async (req, res) => {
   }
 };
 
-const getRiwayatSummaryByBulanId = async (req, res) => {
-  let response = null;
-  try {
-    const bulanId = req.params.id;
-
-    const riwayat = await prisma.riwayat.findMany({
-      where: { bulanId: Number(bulanId) },
-      include: {
-        asalUang: true,
-        kategori: true,
-        nota: true,
-        bulan: true,
-      },
-    });
-
-    let pemasukan = 0;
-    let pengeluaran = 0;
-    let total = 0;
-
-    riwayat.forEach((item) => {
-      if (item.tipe === "Pemasukan") {
-        pemasukan += item.nominal;
-      } else if (item.tipe === "Pengeluaran") {
-        pengeluaran += item.nominal;
-      }
-    });
-
-    total = pemasukan - pengeluaran;
-
-    response = new Response.Success(
-      false,
-      "Riwayat summary retrieved successfully",
-      { Pemasukan: pemasukan, Pengeluaran: pengeluaran, Total: total }
-    );
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
-
 const getRiwayatByUserIdWeekly = async (req, res) => {
   let response = null;
   try {
@@ -789,69 +656,11 @@ const getRiwayatByUserIdWeekly = async (req, res) => {
         bulan: true,
       },
     });
-
+console.log(riwayat);
     response = new Response.Success(
       false,
       "Riwayat retrieved successfully",
       riwayat
-    );
-    res.status(httpStatus.OK).json(response);
-  } catch (error) {
-    response = new Response.Error(true, error.message);
-    res.status(httpStatus.BAD_REQUEST).json(response);
-  }
-};
-const getRiwayatByUserIdWeeklyByKategori = async (req, res) => {
-  let response = null;
-  try {
-    const userId = req.params.id;
-    const currentDate = new Date();
-    const currentDay = currentDate.getDay();
-    const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
-    const mondayDate = new Date(currentDate);
-    mondayDate.setDate(currentDate.getDate() - daysToMonday);
-    mondayDate.setHours(0, 0, 0, 0);
-
-    const sundayDate = new Date(mondayDate);
-    sundayDate.setDate(mondayDate.getDate() + 6);
-    sundayDate.setHours(23, 59, 59, 999);
-
-    console.log(mondayDate.toISOString(), sundayDate.toISOString());
-
-    const riwayat = await prisma.riwayat.findMany({
-      where: {
-        bulan: {
-          userId: parseInt(userId),
-        },
-        tanggal: {
-          gte: mondayDate.toISOString(),
-          lte: sundayDate.toISOString(),
-        },
-        tipe: "Pengeluaran",
-        deleted: false,
-      },
-      include: {
-        asalUang: true,
-        kategori: true,
-        nota: true,
-        bulan: true,
-      },
-    });
-
-    // Group the expenses by Kategori
-    const expensesByKategori = {};
-    riwayat.forEach((item) => {
-      const Kategori = item.kategori.nama;
-      if (!expensesByKategori[Kategori]) {
-        expensesByKategori[Kategori] = [];
-      }
-      expensesByKategori[Kategori].push(item);
-    });
-
-    response = new Response.Success(
-      false,
-      "Riwayat retrieved successfully",
-      expensesByKategori
     );
     res.status(httpStatus.OK).json(response);
   } catch (error) {
@@ -896,21 +705,15 @@ const getLast10RiwayatByUserId = async (req, res) => {
 
 module.exports = {
   upload: upload.single("file"),
-  uploadNota,
   addRiwayat,
   updateRiwayat,
   deleteRiwayat,
 
-  uploadNotaTest,
-
   getRiwayatById,
-  getRiwayatByBulanId,
   getRiwayatByUserId,
   getBulanByBulanAndTahun,
-  getRiwayatSummaryByBulanId,
   getRiwayatByDetailBudgetId,
   getRiwayatByUserIdWeekly,
-  getRiwayatByUserIdWeeklyByKategori,
   getLast10RiwayatByUserId,
 
   deleteNota,

@@ -21,12 +21,9 @@ model User {
   asalUang   asalUang[]
   budget     budget[]
 
-  @@index([email]) // Index for faster email lookups
-  @@index([username]) // Index for faster username lookups
+  @@index([email]) 
+  @@index([username]) 
 }
-
-
-
 
 model budget {
   id             Int       @id @default(autoincrement())
@@ -41,7 +38,7 @@ model budget {
   isBerulang     Boolean?
   detailBudget   detailBudget[]
 
-  @@index([userId]) // Index for fast er queries by userId
+  @@index([userId]) 
 }
 
 model detailBudget {
@@ -56,7 +53,7 @@ model detailBudget {
   budgetId   Int?
   riwayat    riwayat[]
 
-  @@index([budgetId]) // Index for faster queries by budgetId
+  @@index([budgetId]) 
 }
 
 model bulan {
@@ -65,12 +62,13 @@ model bulan {
   tahun       String?
   pemasukan   Float?
   pengeluaran Float?
+  tabungan    Float?
   total       Float?
   riwayat     riwayat[]
   user        User?     @relation(fields: [userId], references: [id])
   userId      Int?
 
-  @@index([userId]) // Index for faster queries by userId
+  @@index([userId]) 
 }
 
 model asalUang {
@@ -81,7 +79,7 @@ model asalUang {
   user         User?     @relation(fields: [userId], references: [id])
   userId       Int?
 
-  @@index([userId]) // Index for faster queries by userId
+  @@index([userId]) 
 }
 
 model kategori {
@@ -94,7 +92,7 @@ model kategori {
   user         User?     @relation(fields: [userId], references: [id])
   userId       Int?
 
-  @@index([userId]) // Index for faster queries by userId
+  @@index([userId]) 
 }
 
 model nota {
@@ -111,7 +109,7 @@ model riwayat {
   nominal       Float?
   catatan       String?
   createdAt     DateTime        @default(now())
-   deleted       Boolean         @default(false)
+  deleted       Boolean         @default(false)
   asalUang      asalUang?       @relation(fields: [asalUangId], references: [id])
   asalUangId    Int?
   kategori      kategori?       @relation(fields: [kategoriId], references: [id])
@@ -123,15 +121,6 @@ model riwayat {
   detailBudget  detailBudget?   @relation(fields: [detailBudgetId], references: [id])
   detailBudgetId Int?
 
-  @@index([bulanId]) // Index for faster queries by bulanId
+  @@index([bulanId]) 
 }
 
-model Prediction {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  category  String
-  amount    Float
-  createdAt DateTime @default(now())
-
-  @@index([userId, category])
-}

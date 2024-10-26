@@ -9,7 +9,6 @@ const addAsalUang = async (req, res) => {
   try {
     const { tipeAsalUang, userId } = req.body;
 
-    // Check if the asal uang type already exists for the user
     const existingAsalUang = await prisma.asalUang.findFirst({
       where: {
         tipeAsalUang,
@@ -43,7 +42,6 @@ const updateAsalUang = async (req, res) => {
     const { tipeAsalUang } = req.body;
     const { id } = req.params;
 
-    // Check if the asal uang exists
     const asalUang = await prisma.asalUang.findUnique({
       where: { id: parseInt(id) },
     });
@@ -53,7 +51,6 @@ const updateAsalUang = async (req, res) => {
       return res.status(httpStatus.NOT_FOUND).json(response);
     }
 
-    // Check if the new asal uang type already exists for the user
     const existingAsalUang = await prisma.asalUang.findFirst({
       where: {
         tipeAsalUang,
@@ -67,7 +64,6 @@ const updateAsalUang = async (req, res) => {
       return res.status(httpStatus.BAD_REQUEST).json(response);
     }
 
-    // Check if the asal uang is used in any riwayat
     const usedInRiwayat = await prisma.riwayat.findFirst({
       where: { asalUangId: parseInt(id) },
     });
@@ -95,7 +91,6 @@ const deleteAsalUang = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if the asal uang is used in any riwayat
     const usedInRiwayat = await prisma.riwayat.findFirst({
       where: { asalUangId: parseInt(id) },
     });
